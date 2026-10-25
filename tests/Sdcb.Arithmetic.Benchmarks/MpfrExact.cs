@@ -49,6 +49,17 @@ internal static unsafe class MpfrExact
     /// <summary>Input generator: returns a random Real of the given precision in the function's domain.</summary>
     private delegate Real Gen(Random rng, int prec);
 
+    // string.GetHashCode() is randomized per process, which made the cross-check flaky.
+    private static int StableSeed(string name)
+    {
+        int h = 17;
+        foreach (char c in name)
+        {
+            h = unchecked(h * 31 + c);
+        }
+        return h & 0x7FFF;
+    }
+
     private static int s_checks, s_failures;
     private static string? s_filter;
 
@@ -77,7 +88,7 @@ internal static unsafe class MpfrExact
             }
             var f = (delegate* unmanaged[Cdecl]<Mpfr.MpfrT*, Mpfr.MpfrT*, int, int>)NativeLibrary.GetExport(s_lib, native);
             int before = s_failures;
-            var rng = new Random(name.GetHashCode() & 0x7FFF);
+            var rng = new Random(StableSeed(name));
             foreach (int prec in precs)
             {
                 int count = prec > 300 ? 6 : 24;
@@ -115,7 +126,7 @@ internal static unsafe class MpfrExact
             }
             var f = (delegate* unmanaged[Cdecl]<Mpfr.MpfrT*, Mpfr.MpfrT*, Mpfr.MpfrT*, int, int>)NativeLibrary.GetExport(s_lib, native);
             int before = s_failures;
-            var rng = new Random(name.GetHashCode() & 0x7FFF);
+            var rng = new Random(StableSeed(name));
             foreach (int prec in precs)
             {
                 int count = prec > 300 ? 6 : 24;

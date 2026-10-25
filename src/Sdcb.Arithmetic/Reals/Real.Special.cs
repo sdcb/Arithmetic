@@ -440,6 +440,11 @@ public readonly partial struct Real
             int need = (int)Math.Min(MaxPrecision, (long)den.Precision + t.Precision + 2);
             den = Multiply(den, t, need); // exact
         }
+        if (den.IsNeg && ExactAdd(a, b)._kind == Kind.Zero)
+        {
+            // b = -n: the Γ(b)/Γ(a+b) poles cancel and mpfr returns the positive magnitude.
+            den = -den;
+        }
         result = Divide(FromBigInt(BigInt.Factorial((ulong)(n - 1))), den, prec, rounding);
         return true;
     }
