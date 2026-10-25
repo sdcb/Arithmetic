@@ -1,11 +1,13 @@
 name: Release
 
-# Push a tag like v0.1.0-preview.1 to test, pack and publish Sdcb.Arithmetic to nuget.org.
+# Publish a GitHub release whose tag is v<semver> (e.g. v1.0.0, v0.1.0-preview.1) to test, pack and
+# publish Sdcb.Arithmetic to nuget.org; the packages are then attached to that release.
 # Publishing uses NuGet Trusted Publishing (OIDC); the nuget.org policy is bound to
 # sdcb/Arithmetic + release.yml, so the publish job only runs in that repository.
+# workflow_dispatch only runs test + pack.
 on:
-  push:
-    tags: ["v*"]
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -51,11 +53,11 @@ jobs:
   publish:
     name: publish to nuget.org
     needs: pack
-    if: github.repository == 'sdcb/Arithmetic' && github.ref_type == 'tag'
+    if: github.repository == 'sdcb/Arithmetic' && github.event_name == 'release'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      contents: write # create the GitHub release
+      contents: write # attach packages to the GitHub release
       id-token: write # OIDC token for NuGet Trusted Publishing
     steps:
       - uses: actions/download-artifact@v8
@@ -72,10 +74,7 @@ jobs:
           user: sdflysha
       - name: Push
         run: dotnet nuget push "nupkg/*.nupkg" --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
-      - name: GitHub release
+      - name: Attach packages to release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          $v = '${{ needs.pack.outputs.version }}'
-          $extra = @(); if ($v -like '*-*') { $extra += '--prerelease' }
-          gh release create '${{ github.ref_name }}' (Get-ChildItem nupkg/*).FullName --repo '${{ github.repository }}' --title "v$v" --generate-notes @extra
+        run: gh release upload '${{ github.ref_name }}' (Get-ChildItem nupkg/*).FullName --clobber --repo '${{ github.repository }}'
