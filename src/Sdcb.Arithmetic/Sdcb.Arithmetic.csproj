@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net10.0</TargetFrameworks>
+    <RootNamespace>Sdcb.Arithmetic</RootNamespace>
+    <AssemblyName>Sdcb.Arithmetic</AssemblyName>
+    <PackageId>Sdcb.Arithmetic</PackageId>
+    <Version>0.1.0-preview.1</Version>
+    <Description>High-performance, pure managed C# arbitrary-precision arithmetic: big integers and rationals plus correctly-rounded arbitrary-precision floating point (five rounding modes, NaN/Inf/signed zero, elementary and transcendental functions). SIMD-accelerated with portable fallbacks, no native dependencies.</Description>
+    <Authors>sdcb</Authors>
+    <Copyright>Copyright (c) 2026 sdcb</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/sdcb/Arithmetic</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/sdcb/Arithmetic.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>bigint;biginteger;bigfloat;bigrational;arbitrary-precision;multiprecision;gmp;mpfr;math;numerics;linqpad-samples</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- CA2252: X86Base.X64.DivRem is analyzer-flagged as preview but is a stable hardware intrinsic at runtime. -->
+    <NoWarn>$(NoWarn);CS1591;CA2252;SYSLIB5004</NoWarn>
+  </PropertyGroup>
+
+  <!-- SourceLink (built into the .NET SDK) + symbol package. -->
+  <PropertyGroup>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" Visible="false" />
+    <None Include="linqpad-samples\*.linq" Pack="true" PackagePath="linqpad-samples" />
+  </ItemGroup>
+
+</Project>

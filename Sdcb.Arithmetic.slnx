@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/examples/">
+    <Project Path="examples/GenericMath/GenericMath.csproj" />
+    <Project Path="examples/Pi/Pi.csproj" />
+    <Project Path="examples/Rounding/Rounding.csproj" />
+    <Project Path="examples/Rsa/Rsa.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Sdcb.Arithmetic/Sdcb.Arithmetic.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Sdcb.Arithmetic.Benchmarks/Sdcb.Arithmetic.Benchmarks.csproj" />
+    <Project Path="tests/Sdcb.Arithmetic.Tests/Sdcb.Arithmetic.Tests.csproj" />
+  </Folder>
+</Solution>

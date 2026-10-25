@@ -1,0 +1,162 @@
+name: CI
+
+# Only changes that can affect build or test results trigger CI (docs/README edits do not).
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "examples/**"
+      - "*.slnx"
+      - "Directory.Build.*"
+      - "global.json"
+      - ".github/workflows/ci.yml"
+      - ".github/scripts/**"
+      - "!**/*.md"
+  pull_request:
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "examples/**"
+      - "*.slnx"
+      - "Directory.Build.*"
+      - "global.json"
+      - ".github/workflows/ci.yml"
+      - ".github/scripts/**"
+      - "!**/*.md"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  # Hosted x64 runners land on mixed hardware, only some with AVX-512. Several shards raise the
+  # chance of hitting it; each shard runs the 512-bit tier (opting in where .NET would otherwise
+  # disable it) and then forces the 256-bit tier, so AVX2 is covered on every shard.
+  x64-wide:
+    name: x64 wide vectors (shard ${{ matrix.shard }})
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+      - name: Build
+        run: dotnet build tests/Sdcb.Arithmetic.Tests -c Release
+      - name: Report tier (512)
+        env:
+          DOTNET_PreferredVectorBitWidth: "512"
+        run: ./.github/scripts/isa.ps1 -Label "shard ${{ matrix.shard }} / 512" -OutFile "isa-shard-${{ matrix.shard }}.txt"
+      - name: Test (512-bit tier where available)
+        env:
+          DOTNET_PreferredVectorBitWidth: "512"
+        run: dotnet test tests/Sdcb.Arithmetic.Tests -c Release --no-build --blame-hang-timeout 5m
+      - name: Report tier (256)
+        if: ${{ !cancelled() }}
+        env:
+          DOTNET_PreferredVectorBitWidth: "256"
+        run: ./.github/scripts/isa.ps1 -Label "shard ${{ matrix.shard }} / 256"
+      - name: Test (256-bit tier forced)
+        if: ${{ !cancelled() }}
+        env:
+          DOTNET_PreferredVectorBitWidth: "256"
+        run: dotnet test tests/Sdcb.Arithmetic.Tests -c Release --no-build --blame-hang-timeout 5m
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: isa-shard-${{ matrix.shard }}
+          path: isa-shard-${{ matrix.shard }}.txt
+          if-no-files-found: ignore
+          retention-days: 7
+
+  isa-summary:
+    name: AVX-512 coverage
+    needs: x64-wide
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: isa-shard-*
+          merge-multiple: true
+          path: isa
+      - name: Summarize
+        run: |
+          $rows = @(Get-ChildItem isa -Filter *.txt -ErrorAction Ignore | Sort-Object Name | ForEach-Object { $s, $v, $c = (Get-Content $_ -Raw).Trim() -split '\|', 3; [pscustomobject]@{ Shard = $s; V512 = $v; Cpu = $c } })
+          $hits = @($rows | Where-Object V512 -eq 'True').Count
+          $md = @('| Shard | Vector512 | CPU |', '|---|---|---|') + ($rows | ForEach-Object { "| $($_.Shard) | $($_.V512) | $($_.Cpu) |" })
+          $md += '', "AVX-512 tier exercised on **$hits / $($rows.Count)** shards."
+          $md | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+          $md | Write-Host
+          if ($hits -eq 0) { Write-Host '::warning title=AVX-512 not covered::No x64 shard ran on AVX-512 hardware; the 512-bit kernels were not tested in this run.' }
+
+  test:
+    name: test (${{ matrix.os }}, ${{ matrix.isa }}, ${{ matrix.configuration }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # OS coverage at the default tier (Arm64 runners only have 128-bit vectors).
+          - { os: windows-latest, isa: default, configuration: Release }
+          - { os: ubuntu-24.04-arm, isa: default, configuration: Release }
+          - { os: macos-latest, isa: default, configuration: Release }
+          # x64 SSE/128-bit paths, and the portable scalar fallbacks.
+          - { os: ubuntu-latest, isa: v128, configuration: Release }
+          - { os: ubuntu-latest, isa: scalar, configuration: Release }
+          # Debug builds run the kernels' Debug.Assert invariants.
+          - { os: ubuntu-latest, isa: default, configuration: Debug }
+          - { os: ubuntu-24.04-arm, isa: default, configuration: Debug }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+      - name: Select vector tier
+        run: |
+          $knob = switch ('${{ matrix.isa }}') {
+            'v128'   { 'DOTNET_PreferredVectorBitWidth=128' }
+            'scalar' { 'DOTNET_EnableHWIntrinsic=0' }
+            default  { $null }
+          }
+          if ($knob) { $knob | Out-File -Append -Encoding utf8 $env:GITHUB_ENV }
+      - name: Report tier
+        run: ./.github/scripts/isa.ps1 -Label "${{ matrix.os }} / ${{ matrix.isa }} / ${{ matrix.configuration }}"
+      - name: Test
+        run: dotnet test tests/Sdcb.Arithmetic.Tests -c ${{ matrix.configuration }} --blame-hang-timeout 5m
+      - name: Build examples
+        if: ${{ matrix.os == 'ubuntu-latest' && matrix.configuration == 'Debug' }}
+        run: Get-ChildItem examples -Filter *.csproj -Recurse | ForEach-Object { dotnet build $_.FullName -c Debug; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE } }
+
+  exact:
+    # Bit-exact cross-checks against native GMP 6.3 / MPFR 4.2 (runtime packages are win-x64 only).
+    name: exact (native GMP/MPFR)
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+      - name: Build harness
+        run: dotnet build tests/Sdcb.Arithmetic.Benchmarks -c Release
+      - name: gmp-exact
+        run: dotnet run --project tests/Sdcb.Arithmetic.Benchmarks -c Release --no-build -- gmp-exact
+      - name: exact (MPFR)
+        run: dotnet run --project tests/Sdcb.Arithmetic.Benchmarks -c Release --no-build -- exact

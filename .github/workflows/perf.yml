@@ -1,0 +1,75 @@
+name: Perf
+
+# Report-only timing table against native GMP 6.3 / MPFR 4.2 (ratio = ours / native, lower is
+# better) and, for integer rows, System.Numerics.BigInteger (speedup = BigInteger / ours). Hosted runners are noisy and land on mixed hardware, so nothing is gated on it;
+# compare ratios across runs on the same CPU (shown in the summary).
+on:
+  workflow_dispatch:
+    inputs:
+      filter:
+        description: "Comma-separated op filter (substring, or =op for an exact match); empty = all"
+        required: false
+        default: ""
+      sizes:
+        description: "Comma-separated sizes (limbs / bits / k); empty = default sweep"
+        required: false
+        default: ""
+  schedule:
+    - cron: "0 3 * * 1"
+
+concurrency:
+  group: perf-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  perf:
+    name: perf vs GMP/MPFR (win-x64)
+    # The native runtime packages are win-x64 only.
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+      - name: Build
+        run: dotnet build tests/Sdcb.Arithmetic.Benchmarks -c Release
+      - name: Report tier
+        run: ./.github/scripts/isa.ps1 -Label "windows-latest / perf"
+      - name: Run perf
+        env:
+          PERF_FILTER: ${{ inputs.filter }}
+          PERF_SIZES: ${{ inputs.sizes }}
+        run: |
+          if (-not $env:PERF_SIZES) { Remove-Item env:PERF_SIZES -ErrorAction SilentlyContinue }
+          $perfArgs = @('perf')
+          if ($env:PERF_FILTER) { $perfArgs += $env:PERF_FILTER }
+          dotnet run --project tests/Sdcb.Arithmetic.Benchmarks -c Release --no-build -- @perfArgs | Tee-Object -FilePath perf.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Summary
+        if: ${{ !cancelled() }}
+        run: |
+          $lines = Get-Content perf.txt
+          $md = @('## Perf vs GMP/MPFR/BigInteger', '', ($lines | Where-Object { $_ -like 'ISA:*' }), '',
+                  '| op | size | ours ns | native ns | ratio | BigInteger ns | speedup vs BigInteger |',
+                  '|---|---:|---:|---:|---:|---:|---:|')
+          foreach ($l in $lines | Select-Object -Skip 2) {
+            $f = -split $l
+            if ($f.Count -ge 7) {
+              $op = $f[0..($f.Count - 7)] -join ' '
+              $md += "| $op | $($f[-6]) | $($f[-5]) | $($f[-4]) | $($f[-3]) | $($f[-2]) | $($f[-1]) |"
+            }
+          }
+          $md -join "`n" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: perf
+          path: perf.txt
