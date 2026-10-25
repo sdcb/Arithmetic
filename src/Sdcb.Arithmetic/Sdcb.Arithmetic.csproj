@@ -15,6 +15,7 @@
     <RepositoryType>git</RepositoryType>
     <PackageTags>bigint;biginteger;bigfloat;bigrational;arbitrary-precision;multiprecision;gmp;mpfr;math;numerics;linqpad-samples</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!-- CA2252: X86Base.X64.DivRem is analyzer-flagged as preview but is a stable hardware intrinsic at runtime. -->
     <NoWarn>$(NoWarn);CS1591;CA2252;SYSLIB5004</NoWarn>
@@ -31,6 +32,7 @@
 
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="\" Visible="false" />
+    <None Include="..\..\assets\icon.png" Pack="true" PackagePath="\" Visible="false" />
     <None Include="linqpad-samples\*.linq" Pack="true" PackagePath="linqpad-samples" />
   </ItemGroup>
 
