@@ -34,8 +34,8 @@ number with a per-value precision in bits.
   return instantly and exactly).
 - **Asymptotically fast transcendentals**: rectangular-splitting series for
   exp/sin/atan, AGM logarithm above `SDCB_ARITHMETIC_LOGAGM` bits (default 700),
-  AGM (Brent–Salamin) π and binary-splitting ln 2 / e above
-  `SDCB_ARITHMETIC_CONSTAGM` bits (default 2000) — 262144-bit π in ~0.4 s.
+  Chudnovsky π and ln 2 / e by binary splitting above
+  `SDCB_ARITHMETIC_CONSTAGM` bits (default 2000) — 262144-bit π in ~0.1 s, 1M decimal digits in ~0.8 s.
 
 ## Example
 

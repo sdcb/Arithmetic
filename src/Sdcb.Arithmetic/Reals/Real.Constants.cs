@@ -58,7 +58,7 @@ public readonly partial struct Real
         BigInt pi;
         if (wp >= ConstAgmThreshold)
         {
-            pi = PiFixedAgm(cp);
+            pi = PiFixedChudnovsky(cp);
         }
         else
         {
@@ -175,44 +175,51 @@ public readonly partial struct Real
     }
 
     /// <summary>
-    /// Precision above which the constants use the quadratically convergent AGM / exp paths
-    /// instead of the linear series (configurable for tuning).
+    /// Precision above which the constants use binary splitting (Chudnovsky for π)
+    /// instead of the linear fixed-point series (configurable for tuning).
     /// </summary>
     internal static int ConstAgmThreshold = int.TryParse(Environment.GetEnvironmentVariable("SDCB_ARITHMETIC_CONSTAGM"), out int t) ? t : 2000;
 
     /// <summary>
-    /// π at wp fractional bits by the Brent–Salamin AGM iteration:
-    /// a0 = 1, b0 = 1/√2, t0 = 1/4; π = (a+b)²/(4t) after ~2 log2(wp) iterations.
+    /// π at wp fractional bits by the Chudnovsky series with binary splitting:
+    /// 1/π = 12 Σ (-1)^k (6k)! (13591409 + 545140134 k) / ((3k)! (k!)³ 640320^(3k+3/2)),
+    /// i.e. π = 426880 √10005 · Q / T. Each term adds ~47.11 bits, so the cost is
+    /// O(M(n) log² n) — several times faster than the Brent–Salamin AGM, whose ~log2(n)
+    /// full-precision square roots dominate at high precision.
     /// </summary>
-    private static BigInt PiFixedAgm(int wp)
+    private static BigInt PiFixedChudnovsky(int wp)
     {
-        int p = wp + 96;
-        Real a = One.WithPrecision(p);
-        Real b = ReciprocalSqrt(Two.WithPrecision(p), p);
-        Real t = RoundPow2(-2, negative: false, p, RealRounding.NearestEven);
-        int pwr = 0, iters = 0;
-        long tol = -p + 16;
-        while (true)
-        {
-            Real an = Add(a, b, p).ShiftRight(1);
-            Real bn = Sqrt(Multiply(a, b, p), p);
-            Real d = Subtract(an, a, p);
-            a = an;
-            b = bn;
-            // t_k = 1/4 - Σ 2^{k-1} (a_k - a_{k-1})², then π ≈ (a_k + b_k)² / (4 t_k).
-            t = Subtract(t, Multiply(d, d, p).ShiftLeft(pwr), p);
-            pwr++;
-            iters++;
-            if (d._kind != Kind.Normal || d.BinaryExponent < tol)
-            {
-                break;
-            }
-        }
-        Real pi = Divide(Square(Add(a, b, p), p), t.ShiftLeft(2), p);
-        Debug.Assert(iters < 64);
+        int p = wp + 32;
+        long n = (long)(wp / 47.11) + 2;
+        (_, BigInt q, BigInt t) = ChudnovskySplit(0, n, needP: false);
+        Real r = Divide(FromBigInt(q, 0, p), FromBigInt(t, 0, p), p);
+        Real s = Sqrt(FromBigInt(10005, 0, p), p);
+        Real pi = Multiply(Multiply(r, s, p), FromBigInt(426880, 0, p), p);
         return pi.ToFixed(wp);
     }
 
+    /// <summary>
+    /// Chudnovsky binary splitting over [a, b): P = Π p_k, Q = Π q_k and T with
+    /// Σ_{k∈[a,b)} term_k / term_a = T / Q (P is skipped for the rightmost branch).
+    /// </summary>
+    private static (BigInt P, BigInt Q, BigInt T) ChudnovskySplit(long a, long b, bool needP)
+    {
+        if (b - a == 1)
+        {
+            if (a == 0)
+            {
+                return (BigInt.One, BigInt.One, new BigInt(13591409));
+            }
+            BigInt p = (BigInt)(6 * a - 5) * (2 * a - 1) * (6 * a - 1);
+            BigInt q = (BigInt)a * a * a * 10939058860032000L; // 640320³ / 24
+            BigInt t = p * (13591409 + 545140134 * (BigInt)a);
+            return (p, q, (a & 1) == 1 ? -t : t);
+        }
+        long m = (a + b) / 2;
+        (BigInt p1, BigInt q1, BigInt t1) = ChudnovskySplit(a, m, needP: true);
+        (BigInt p2, BigInt q2, BigInt t2) = ChudnovskySplit(m, b, needP);
+        return (needP ? p1 * p2 : default, q1 * q2, t1 * q2 + p1 * t2);
+    }
     /// <summary>atan(1/q) at wp fractional bits: Σ (-1)^i / ((2i+1) q^(2i+1)).</summary>
     internal static BigInt AtanRecipFixed(ulong q, int wp)
     {

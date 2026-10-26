@@ -71,7 +71,7 @@ accumulators directly on the internal limb kernels with pooled/stack scratch, so
 operation allocates only its result. Above ~4096 bits the remaining gap is the
 integer kernels themselves (multiplication/division), not `Real` overhead.
 
-π via Brent–Salamin AGM: 262144 bits in ~0.4 s (first call in a fresh process,
+π via Chudnovsky binary splitting: 262144 bits in ~0.1 s and 1M decimal digits (3.3M bits) in ~0.8 s (first call in a fresh process,
 including JIT). The `r.pi` row printed by `perf` is not a like-for-like ratio: `Real.Pi` reuses its
 internal constant cache while the MPFR side frees its cache on every call.
 

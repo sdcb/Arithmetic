@@ -5,7 +5,7 @@
 </Query>
 
 // Computes π to N decimal digits two ways and checks that they agree:
-//   1. Real.Pi: the built-in correctly-rounded constant (Brent–Salamin AGM).
+//   1. Real.Pi: the built-in correctly-rounded constant (Chudnovsky + Ziv rounding).
 //   2. Chudnovsky series with binary splitting, written here using only BigInt.
 void Main()
 {
