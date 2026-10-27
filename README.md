@@ -81,7 +81,7 @@ Every `BigInt` operation is cross-checked against `BigInteger` and native GMP, a
 
 ## WeChat group
 
-![](https://io.starworks.cc:88/cv-public/2026/ocr-wxg-qr.png?1012)
+![](https://io.starworks.cc:88/cv-public/2026/ocr-wxg-qr.png?1027)
 
 If the WeChat QR code has expired, join the QQ group [.NET骚操作 495782587](https://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=&authKey=&noverify=0&group_code=495782587).
 
