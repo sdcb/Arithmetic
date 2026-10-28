@@ -106,17 +106,18 @@ public readonly partial struct BigInt
     public bool TestBit(long index)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(index);
-        int limb = (int)(index >> 6);
+        long limbIndex = index >> 6;
         int bit = (int)(index & 63);
         ReadOnlySpan<ulong> m = Limbs;
         int n = m.Length;
+        if (limbIndex >= n)
+        {
+            return _size < 0; // zero / sign extension
+        }
+        int limb = (int)limbIndex;
         if (_size >= 0)
         {
-            return limb < n && ((m[limb] >> bit) & 1) != 0;
-        }
-        if (limb >= n)
-        {
-            return true; // sign extension
+            return ((m[limb] >> bit) & 1) != 0;
         }
         // Bit of ~(|v| - 1): borrow from subtracting 1 reaches limb only if all lower limbs are zero.
         bool lowerZero = true;
@@ -148,18 +149,19 @@ public readonly partial struct BigInt
         {
             return this;
         }
-        int limb = (int)(index >> 6);
+        // Changing a bit beyond the current length needs limb + 2 limbs; overflow means the result cannot be represented.
+        int limb = checked((int)(index >> 6));
         int bit = (int)(index & 63);
         if (_size >= 0)
         {
-            int len = Math.Max(LimbCount, limb + 1);
+            int len = Math.Max(LimbCount, checked(limb + 1));
             ulong[] d = new ulong[len];
             Limbs.CopyTo(d);
             d[limb] ^= 1UL << bit;
             return FromMagnitude(d, len, 1);
         }
         // Negative: operate on two's complement.
-        int tlen = Math.Max(LimbCount, limb + 1) + 1;
+        int tlen = checked(Math.Max(LimbCount, limb + 1) + 1);
         ulong[] t = ToTwosComplement(tlen);
         t[limb] ^= 1UL << bit;
         return FromTwosComplement(t);

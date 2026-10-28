@@ -346,9 +346,9 @@ public readonly partial struct BigInt
         }
         ArgumentOutOfRangeException.ThrowIfNegative(shift);
         int n = LimbCount;
-        int limbShift = (int)(shift >> 6);
+        int limbShift = checked((int)(shift >> 6));
         int bitShift = (int)(shift & 63);
-        int len = n + limbShift + 1;
+        int len = checked(n + limbShift + 1);
         ulong[] d = NewLimbs(len);
         d.AsSpan(0, limbShift).Clear();
         if (bitShift == 0)
@@ -429,8 +429,8 @@ public readonly partial struct BigInt
             }
         }
         int bitShift = (int)(shift & 63);
-        int limbIndex = (int)(shift >> 6);
-        if (bitShift != 0 && limbIndex < n && (m[limbIndex] & ((1UL << bitShift) - 1)) != 0)
+        long limbIndex = shift >> 6;
+        if (bitShift != 0 && limbIndex < n && (m[(int)limbIndex] & ((1UL << bitShift) - 1)) != 0)
         {
             return true;
         }

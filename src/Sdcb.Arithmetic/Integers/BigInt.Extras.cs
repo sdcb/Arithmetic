@@ -38,7 +38,7 @@ public readonly partial struct BigInt
     {
         ArgumentOutOfRangeException.ThrowIfNegative(bits);
         BigInt low = LowBitsMagnitude(bits);
-        return _size < 0 && !low.IsZero ? (One << (int)bits) - low : low;
+        return _size < 0 && !low.IsZero ? One.ShiftLeft(bits) - low : low;
     }
 
     /// <summary>Non-positive remainder of ceiling division by 2^bits (mpz_cdiv_r_2exp).</summary>
@@ -46,7 +46,7 @@ public readonly partial struct BigInt
     {
         ArgumentOutOfRangeException.ThrowIfNegative(bits);
         BigInt low = LowBitsMagnitude(bits);
-        return _size > 0 && !low.IsZero ? low - (One << (int)bits) : -low;
+        return _size > 0 && !low.IsZero ? low - One.ShiftLeft(bits) : -low;
     }
 
     /// <summary>|value| mod 2^bits.</summary>

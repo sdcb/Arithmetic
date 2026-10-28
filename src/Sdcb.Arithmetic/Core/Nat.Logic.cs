@@ -262,11 +262,11 @@ internal static partial class Nat
     /// <summary>Index of the lowest set bit at or above position bit; -1 if none below n limbs.</summary>
     public static long IndexOfSetBit(ReadOnlySpan<ulong> a, int n, long bit)
     {
-        int limb = (int)(bit >> 6);
-        if (limb >= n)
+        if (bit >> 6 >= n)
         {
             return -1;
         }
+        int limb = (int)(bit >> 6);
         ulong w = a[limb] & (ulong.MaxValue << (int)(bit & 63));
         if (w != 0)
         {
@@ -284,11 +284,11 @@ internal static partial class Nat
     /// <summary>Index of the lowest clear bit at or above position bit (treating the value as infinitely zero-extended).</summary>
     public static long IndexOfClearBit(ReadOnlySpan<ulong> a, int n, long bit)
     {
-        int limb = (int)(bit >> 6);
-        if (limb >= n)
+        if (bit >> 6 >= n)
         {
             return bit;
         }
+        int limb = (int)(bit >> 6);
         ulong w = ~a[limb] & (ulong.MaxValue << (int)(bit & 63));
         if (w != 0)
         {
