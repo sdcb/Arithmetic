@@ -153,10 +153,10 @@ public readonly partial struct Real
             ShiftLeftInto(w, qn, m, mn, -drop);
             if (sticky)
             {
-                return RoundSticky(w, qn, e + drop, negative, prec, rnd, out ternary);
+                return RoundSticky(w, qn, checked(e + drop), negative, prec, rnd, out ternary);
             }
             ternary = 0;
-            return new Real(new BigInt(w, qn), e + drop, prec, Kind.Normal, negative);
+            return new Real(new BigInt(w, qn), checked(e + drop), prec, Kind.Normal, negative);
         }
 
         bool guard = TestBit(m, drop - 1);
@@ -173,7 +173,7 @@ public readonly partial struct Real
         {
             Nat.ShiftRight(q, m.Slice(limbShift), sn, bitShift);
         }
-        e += drop;
+        e = checked(e + drop); // an exponent beyond long range must not wrap
         ternary = 0;
         if (guard || stickyLow)
         {
@@ -235,7 +235,7 @@ public readonly partial struct Real
         {
             q.Slice(0, qn).Clear();
             q[qn - 1] = 1UL << ((prec - 1) & 63);
-            e++;
+            e = checked(e + 1);
         }
     }
 

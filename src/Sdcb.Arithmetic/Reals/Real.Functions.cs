@@ -632,24 +632,28 @@ public readonly partial struct Real
     /// <summary>k-th root for a signed k (mpfr_rootn_si): x^(1/k).</summary>
     public static Real RootN(Real x, long k, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        if (k > 0)
+        if (k > 0 && k <= uint.MaxValue)
         {
-            return RootN(x, (uint)Math.Min(k, uint.MaxValue), precision, rounding);
+            return RootN(x, (uint)k, precision, rounding);
         }
         int prec = precision != 0 ? precision : x.Precision;
         if (k == 0)
         {
             return MakeNaN(prec);
         }
-        bool odd = (k & 1) != 0;
+        bool odd = (k & 1) != 0, recip = k < 0;
         switch (x._kind)
         {
             case Kind.NaN:
                 return MakeNaN(prec);
             case Kind.Zero:
-                return MakeInf(x.IsNeg && odd, prec);
+                return recip ? MakeInf(x.IsNeg && odd, prec) : MakeZero(x.IsNeg && odd, prec);
             case Kind.Inf:
-                return x.IsNeg && !odd ? MakeNaN(prec) : MakeZero(x.IsNeg && odd, prec);
+                if (x.IsNeg && !odd)
+                {
+                    return MakeNaN(prec);
+                }
+                return recip ? MakeZero(x.IsNeg && odd, prec) : MakeInf(x.IsNeg && odd, prec);
         }
         if (x.IsNeg && !odd)
         {
@@ -663,23 +667,37 @@ public readonly partial struct Real
         {
             return ReciprocalSqrt(x, prec, rounding);
         }
-        ulong kk = (ulong)(-k);
-        // x^(-1/kk) is dyadic only when x is a power of two 2^e2 with kk | e2: return it exactly
+        ulong kk = recip ? 0UL - (ulong)k : (ulong)k; // |k|, exact for long.MinValue
+        // x^(1/k) is dyadic only when x is a power of two 2^e2 with |k| | e2: return it exactly
         // (Ziv cannot terminate on an exact result).
-        if (x._man.TrailingZeroCount() == x._man.GetBitLength() - 1)
+        if (x._man.IsPowerOfTwo)
         {
             long e2 = x.BinaryExponent - 1;
-            if (e2 % (long)Math.Min(kk, long.MaxValue) == 0)
+            ulong ae2 = e2 < 0 ? 0UL - (ulong)e2 : (ulong)e2;
+            if (ae2 % kk == 0)
             {
-                Real p2 = FromBigInt(BigInt.One, prec).ShiftLeft(-(e2 / (long)kk));
+                long q = (long)(ae2 / kk); // kk >= 2, so |q| <= 2^62
+                Real p2 = FromBigInt(BigInt.One, prec).ShiftLeft((e2 < 0) != recip ? -q : q);
                 return x.IsNeg ? -p2 : p2;
             }
         }
+        if (kk <= uint.MaxValue)
+        {
+            return Ziv(prec, rounding, wp =>
+            {
+                Real root = RootN(x.Abs(), (uint)kk, wp + 8);
+                Real v = Divide(One, root, wp + 8);
+                return Approx(x.IsNeg ? -v : v, 4);
+            });
+        }
+        // |k| > 2^32: exp(log|x| / k). |log|x|| < 2^63, so |t| < 2^31 and the absolute error of t
+        // (which is the relative error of the result) stays below 2^(31 - wpi).
         return Ziv(prec, rounding, wp =>
         {
-            Real root = RootN(x.Abs(), (uint)Math.Min(kk, uint.MaxValue), wp + 8);
-            Real v = Divide(One, root, wp + 8);
-            return Approx(x.IsNeg ? -v : v, 4);
+            int wpi = wp + 48;
+            Real t = Divide(Log(x.Abs(), wpi), FromBigInt(new BigInt(k), 64), wpi);
+            Real v = Exp(t, wpi);
+            return Approx(x.IsNeg ? -v : v, 8);
         });
     }
 

@@ -175,7 +175,7 @@ public readonly partial struct Real :
             stickyLow |= drop > 1 && (m & ((UInt128.One << (drop - 1)) - 1)) != 0;
             m >>= drop;
         }
-        e += drop;
+        e = checked(e + drop); // an exponent beyond long range must not wrap
         ternary = 0;
         if (guard || stickyLow)
         {
@@ -194,7 +194,7 @@ public readonly partial struct Real :
                 if (m >> prec != 0)
                 {
                     m >>= 1; // was 2^prec: exact halving
-                    e++;
+                    e = checked(e + 1);
                 }
                 ternary = negative ? -1 : 1;
             }

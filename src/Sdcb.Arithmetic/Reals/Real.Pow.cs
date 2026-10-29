@@ -340,10 +340,6 @@ public readonly partial struct Real
         {
             return x.WithPrecision(prec, rounding);
         }
-        if (k == 2)
-        {
-            return Sqrt(x, prec, rounding);
-        }
         bool odd = (k & 1) != 0;
         switch (x._kind)
         {
@@ -361,6 +357,10 @@ public readonly partial struct Real
         if (x.IsNeg && !odd)
         {
             return MakeNaN(prec);
+        }
+        if (k == 2)
+        {
+            return Sqrt(x, prec, rounding); // after the zero case: rootn(-0, 2) = +0, unlike sqrt(-0) = -0
         }
         // Direct correctly-rounded root: r = floor((m << s)^(1/k)), sticky from the remainder.
         long need = (long)k * (prec + 2);
