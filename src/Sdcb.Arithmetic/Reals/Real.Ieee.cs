@@ -109,8 +109,7 @@ public readonly partial struct Real
     /// </summary>
     public static Real FromBinary128Bits(UInt128 bits, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : Math.Max(DefaultPrecision, Binary128Precision);
-        ArgumentOutOfRangeException.ThrowIfLessThan(prec, MinPrecision);
+        int prec = ResolvePrecision(precision, Math.Max(DefaultPrecision, Binary128Precision));
         bool neg = (bits & s_binary128SignBit) != 0;
         int biased = (int)(bits >> 112) & 0x7FFF;
         UInt128 frac = bits & s_binary128FractionMask;

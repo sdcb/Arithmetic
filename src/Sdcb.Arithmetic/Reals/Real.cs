@@ -132,6 +132,23 @@ public readonly partial struct Real :
     public static Real MinusOne => FromBigInt(BigInt.MinusOne, 0);
     public static Real Half => FromBigInt(BigInt.One, 0).ShiftRight(1);
 
+    /// <summary>An explicit precision, validated to [MinPrecision, MaxPrecision]; 0 selects <paramref name="fallback"/>.</summary>
+    internal static int ResolvePrecision(int precision, int fallback)
+    {
+        if (precision == 0)
+        {
+            return fallback;
+        }
+        ValidatePrecision(precision);
+        return precision;
+    }
+
+    private static void ValidatePrecision(int precision)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(precision, MinPrecision);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(precision, MaxPrecision);
+    }
+
     internal static Real MakeZero(bool negative, int prec) => new(default, 0, prec, Kind.Zero, negative);
     internal static Real MakeInf(bool negative, int prec) => new(default, 0, prec, Kind.Inf, negative);
     internal static Real MakeNaN(int prec) => new(default, 0, prec, Kind.NaN, negative: false);
@@ -224,15 +241,11 @@ public readonly partial struct Real :
     /// <summary>Creates an exact Real from an integer (rounded only if it exceeds the precision).</summary>
     public static Real FromBigInt(BigInt value, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
+        // Exact by default: use enough precision for the whole integer.
+        int prec = ResolvePrecision(precision, (int)Math.Min(Math.Max(DefaultPrecision, value.GetBitLength()), MaxPrecision));
         if (value.IsZero)
         {
             return MakeZero(negative: false, precision);
-        }
-        int prec = precision != 0 ? precision : Math.Max(DefaultPrecision, (int)Math.Min(value.GetBitLength(), MaxPrecision));
-        if (precision == 0)
-        {
-            // Exact by default: use enough precision for the whole integer.
-            prec = (int)Math.Min(Math.Max(DefaultPrecision, value.GetBitLength()), MaxPrecision);
         }
         return Round(value.Abs(), 0, sticky: false, value.Sign < 0, prec, rounding, out _);
     }
@@ -251,7 +264,7 @@ public readonly partial struct Real :
     /// <summary>Converts a double exactly (a double always fits in 53 bits).</summary>
     public static Real FromDouble(double value, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : DefaultPrecision;
+        int prec = ResolvePrecision(precision, DefaultPrecision);
         if (double.IsNaN(value))
         {
             return MakeNaN(prec);
@@ -288,7 +301,7 @@ public readonly partial struct Real :
     /// <summary>Returns this value rounded to a new precision (mpfr_prec_round).</summary>
     public Real WithPrecision(int precision, RealRounding rounding = RealRounding.NearestEven)
     {
-        ArgumentOutOfRangeException.ThrowIfLessThan(precision, MinPrecision);
+        ValidatePrecision(precision);
         return _kind switch
         {
             Kind.Zero => MakeZero(IsNeg, precision),

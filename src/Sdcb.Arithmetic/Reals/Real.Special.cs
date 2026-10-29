@@ -201,7 +201,7 @@ public readonly partial struct Real
     /// <summary>Gamma function Γ(x) (mpfr_gamma).</summary>
     public static Real Gamma(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
         {
             case Kind.NaN:
@@ -247,7 +247,7 @@ public readonly partial struct Real
     /// <summary>ln Γ(x) (mpfr_lngamma): NaN where Γ(x) &lt; 0, +inf at poles.</summary>
     public static Real LogGamma(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         if (x._kind == Kind.NaN)
         {
             return MakeNaN(prec);
@@ -266,7 +266,7 @@ public readonly partial struct Real
     /// <summary>log |Γ(x)| and the sign of Γ(x) (mpfr_lgamma).</summary>
     public static Real LogGamma(Real x, out int sign, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         sign = 1;
         if (x._kind == Kind.NaN)
         {
@@ -304,7 +304,7 @@ public readonly partial struct Real
     /// <summary>Digamma ψ(x) = Γ'(x)/Γ(x) (mpfr_digamma).</summary>
     public static Real Digamma(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
         {
             case Kind.NaN:
@@ -456,7 +456,7 @@ public readonly partial struct Real
     /// <summary>Error function erf(x) (mpfr_erf).</summary>
     public static Real Erf(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
         {
             case Kind.NaN:
@@ -545,7 +545,7 @@ public readonly partial struct Real
     /// <summary>Complementary error function erfc(x) = 1 - erf(x) (mpfr_erfc).</summary>
     public static Real Erfc(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
         {
             case Kind.NaN:
@@ -602,7 +602,7 @@ public readonly partial struct Real
     /// <summary>Riemann zeta function ζ(s) for real s (mpfr_zeta).</summary>
     public static Real Zeta(Real s, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : s.Precision;
+        int prec = ResolvePrecision(precision, s.Precision);
         switch (s._kind)
         {
             case Kind.NaN:
@@ -742,7 +742,7 @@ public readonly partial struct Real
 
     /// <summary>ζ(n) for an unsigned integer n (mpfr_zeta_ui).</summary>
     public static Real Zeta(ulong n, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
-        => Zeta(FromBigInt(new BigInt(n), 66), precision != 0 ? precision : DefaultPrecision, rounding);
+        => Zeta(FromBigInt(new BigInt(n), 66), ResolvePrecision(precision, DefaultPrecision), rounding);
 
     // ---------------------------------------------------------------
     // Exponential integral and dilogarithm
@@ -751,7 +751,7 @@ public readonly partial struct Real
     /// <summary>Exponential integral Ei(x) (mpfr_eint); for x &lt; 0 this is -E1(-x).</summary>
     public static Real ExponentialIntegral(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
         {
             case Kind.NaN:
@@ -809,7 +809,7 @@ public readonly partial struct Real
     /// <summary>Dilogarithm Dilogarithm(x) = -∫_0^x log(1-t)/t dt (real part for x &gt; 1; mpfr_li2).</summary>
     public static Real Dilogarithm(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
         {
             case Kind.NaN:
@@ -922,7 +922,7 @@ public readonly partial struct Real
     /// <summary>Bessel function of the first kind of order n (mpfr_jn).</summary>
     public static Real BesselJ(long n, Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
         {
             case Kind.NaN:
@@ -1027,7 +1027,7 @@ public readonly partial struct Real
     /// <summary>Bessel function of the second kind of order n (mpfr_yn); defined for x &gt; 0.</summary>
     public static Real BesselY(long n, Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
         {
             case Kind.NaN:
@@ -1139,7 +1139,7 @@ public readonly partial struct Real
     /// <summary>Airy function Ai(x) (mpfr_ai).</summary>
     public static Real AiryAi(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
         {
             case Kind.NaN:
@@ -1205,7 +1205,7 @@ public readonly partial struct Real
     public static Real Random(System.Random random, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
         ArgumentNullException.ThrowIfNull(random);
-        int prec = precision != 0 ? precision : DefaultPrecision;
+        int prec = ResolvePrecision(precision, DefaultPrecision);
         long exp = 0;
         BigInt m;
         // Skip leading zero words (each with probability 2^-64), then draw the significand.
@@ -1222,7 +1222,7 @@ public readonly partial struct Real
     /// <summary>A standard normal deviate (Box-Muller), rounded (mpfr_nrandom).</summary>
     public static Real RandomNormal(System.Random random, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : DefaultPrecision;
+        int prec = ResolvePrecision(precision, DefaultPrecision);
         int p = prec + 32;
         Real u1 = Random(random, p, RealRounding.TowardZero), u2 = Random(random, p, RealRounding.TowardZero);
         if (u1._kind == Kind.Zero)
@@ -1236,7 +1236,7 @@ public readonly partial struct Real
     /// <summary>An exponential deviate with rate 1, rounded (mpfr_erandom).</summary>
     public static Real RandomExponential(System.Random random, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : DefaultPrecision;
+        int prec = ResolvePrecision(precision, DefaultPrecision);
         Real u = Random(random, prec + 32, RealRounding.TowardZero);
         if (u._kind == Kind.Zero)
         {

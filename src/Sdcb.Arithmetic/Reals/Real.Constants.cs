@@ -22,7 +22,7 @@ public readonly partial struct Real
     /// <summary>π correctly rounded to the given precision (mpfr_const_pi).</summary>
     public static Real Pi(int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : DefaultPrecision;
+        int prec = ResolvePrecision(precision, DefaultPrecision);
         return Ziv(prec, rounding, wp =>
         {
             BigInt pi = PiFixed(wp);
@@ -33,14 +33,14 @@ public readonly partial struct Real
     /// <summary>ln 2 correctly rounded (mpfr_const_log2).</summary>
     public static Real Ln2(int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : DefaultPrecision;
+        int prec = ResolvePrecision(precision, DefaultPrecision);
         return Ziv(prec, rounding, wp => (Ln2Fixed(wp), (long)-wp, 64));
     }
 
     /// <summary>EulerGamma's number e correctly rounded.</summary>
     public static Real E(int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : DefaultPrecision;
+        int prec = ResolvePrecision(precision, DefaultPrecision);
         return Ziv(prec, rounding, wp => (EFixed(wp), (long)-wp, 64));
     }
 

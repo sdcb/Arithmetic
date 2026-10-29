@@ -11,7 +11,7 @@ public readonly partial struct Real
     /// <summary>x^y correctly rounded (mpfr_pow), with the full IEEE 754 special-case table.</summary>
     public static Real Pow(Real x, Real y, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : Math.Max(x.Precision, y.Precision);
+        int prec = ResolvePrecision(precision, Math.Max(x.Precision, y.Precision));
 
         // pow(x, ±0) = 1 and pow(+1, y) = 1 even for NaN operands (IEEE 754 / MPFR).
         if (y._kind == Kind.Zero)
@@ -135,7 +135,7 @@ public readonly partial struct Real
     /// <summary>x^n for a machine integer n via squaring under Ziv (mpfr_pow_si).</summary>
     public static Real Pow(Real x, long n, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         if (n == 0)
         {
             return Round(BigInt.One, 0, sticky: false, negative: false, prec, rounding, out _);
@@ -276,7 +276,7 @@ public readonly partial struct Real
     /// <summary>sqrt(x² + y²) without intermediate overflow (mpfr_hypot).</summary>
     public static Real Hypot(Real x, Real y, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : Math.Max(x.Precision, y.Precision);
+        int prec = ResolvePrecision(precision, Math.Max(x.Precision, y.Precision));
         if (x._kind == Kind.Inf || y._kind == Kind.Inf)
         {
             return MakeInf(negative: false, prec); // hypot(±inf, NaN) = +inf per IEEE
@@ -335,7 +335,7 @@ public readonly partial struct Real
     public static Real RootN(Real x, uint k, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
         ArgumentOutOfRangeException.ThrowIfZero(k);
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         if (k == 1)
         {
             return x.WithPrecision(prec, rounding);
@@ -377,7 +377,7 @@ public readonly partial struct Real
     /// <summary>1/sqrt(x) correctly rounded (mpfr_rec_sqrt).</summary>
     public static Real ReciprocalSqrt(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
         {
             case Kind.NaN:

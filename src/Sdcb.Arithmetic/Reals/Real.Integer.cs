@@ -90,16 +90,16 @@ public readonly partial struct Real
         }
         if (_exp >= 0)
         {
-            return MakeZero(IsNeg, precision != 0 ? precision : Precision);
+            return MakeZero(IsNeg, ResolvePrecision(precision, Precision));
         }
         long frac = Math.Min(-_exp, Precision); // fractional bits present in the mantissa
         BigInt mask = (BigInt.One << (int)frac) - BigInt.One;
         BigInt fm = _man & mask;
         if (fm.IsZero)
         {
-            return MakeZero(IsNeg, precision != 0 ? precision : Precision);
+            return MakeZero(IsNeg, ResolvePrecision(precision, Precision));
         }
-        return Round(fm, _exp, sticky: false, IsNeg, precision != 0 ? precision : Precision, rounding, out _);
+        return Round(fm, _exp, sticky: false, IsNeg, ResolvePrecision(precision, Precision), rounding, out _);
     }
 
     /// <summary>True when the value is an exact integer (mpfr_integer_p).</summary>

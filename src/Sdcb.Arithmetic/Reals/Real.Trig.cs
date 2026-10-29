@@ -11,7 +11,7 @@ public readonly partial struct Real
     /// <summary>Correctly-rounded sine (mpfr_sin).</summary>
     public static Real Sin(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         if (x._kind is Kind.NaN or Kind.Inf)
         {
             return MakeNaN(prec);
@@ -35,7 +35,7 @@ public readonly partial struct Real
     /// <summary>Correctly-rounded cosine (mpfr_cos).</summary>
     public static Real Cos(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         if (x._kind is Kind.NaN or Kind.Inf)
         {
             return MakeNaN(prec);
@@ -55,7 +55,7 @@ public readonly partial struct Real
     /// <summary>Correctly-rounded tangent (mpfr_tan).</summary>
     public static Real Tan(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         if (x._kind is Kind.NaN or Kind.Inf)
         {
             return MakeNaN(prec);
@@ -170,7 +170,7 @@ public readonly partial struct Real
     /// <summary>Correctly-rounded arctangent (mpfr_atan).</summary>
     public static Real Atan(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
         {
             case Kind.NaN:
@@ -234,7 +234,7 @@ public readonly partial struct Real
     /// <summary>Correctly-rounded arcsine (mpfr_asin); NaN outside [-1, 1].</summary>
     public static Real Asin(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
         {
             case Kind.NaN:
@@ -282,7 +282,7 @@ public readonly partial struct Real
     /// <summary>Correctly-rounded arccosine (mpfr_acos); NaN outside [-1, 1].</summary>
     public static Real Acos(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
         {
             case Kind.NaN:
@@ -324,7 +324,7 @@ public readonly partial struct Real
     /// <summary>Two-argument arctangent (mpfr_atan2) following the usual quadrant conventions.</summary>
     public static Real Atan2(Real y, Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : Math.Max(y.Precision, x.Precision);
+        int prec = ResolvePrecision(precision, Math.Max(y.Precision, x.Precision));
         if (y._kind == Kind.NaN || x._kind == Kind.NaN)
         {
             return MakeNaN(prec);

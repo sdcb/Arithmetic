@@ -477,7 +477,7 @@ public readonly partial struct Real :
     /// <summary>asin(x)/π (mpfr_asinpi).</summary>
     public static Real AsinPi(Real x, int precision = 0, RealRounding rounding = Rne)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         if (x._kind == Kind.NaN || x._kind == Kind.Inf)
         {
             return MakeNaN(prec);
@@ -501,7 +501,7 @@ public readonly partial struct Real :
     /// <summary>acos(x)/π (mpfr_acospi).</summary>
     public static Real AcosPi(Real x, int precision = 0, RealRounding rounding = Rne)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         if (x._kind == Kind.NaN || x._kind == Kind.Inf)
         {
             return MakeNaN(prec);
@@ -525,7 +525,7 @@ public readonly partial struct Real :
     /// <summary>atan(x)/π (mpfr_atanpi).</summary>
     public static Real AtanPi(Real x, int precision = 0, RealRounding rounding = Rne)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
         {
             case Kind.NaN:

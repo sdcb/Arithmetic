@@ -38,7 +38,7 @@ public readonly partial struct Real
         => AddCore(a, b, negateB: true, ResolvePrec(a, b, precision), rounding, out ternary);
 
     private static int ResolvePrec(Real a, Real b, int precision)
-        => precision != 0 ? precision : Math.Max(a.Precision, b.Precision);
+        => ResolvePrecision(precision, Math.Max(a.Precision, b.Precision));
 
     private static Real AddCore(Real a, Real b, bool negateB, int prec, RealRounding rnd, out int ternary)
     {
@@ -156,7 +156,7 @@ public readonly partial struct Real
         {
             return Multiply(a, a, precision, rounding, out _);
         }
-        int prec = precision != 0 ? precision : a.Precision;
+        int prec = ResolvePrecision(precision, a.Precision);
         return MulRound(a._man, a._man, 2 * a._exp, negative: false, prec, rounding, out _);
     }
 
@@ -220,7 +220,7 @@ public readonly partial struct Real
     /// <summary>Correctly-rounded square root (mpfr_sqrt).</summary>
     public static Real Sqrt(Real a, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : a.Precision;
+        int prec = ResolvePrecision(precision, a.Precision);
         switch (a._kind)
         {
             case Kind.NaN:
@@ -273,7 +273,7 @@ public readonly partial struct Real
     /// <summary>Fused multiply-add a*b + c with a single rounding (mpfr_fma).</summary>
     public static Real FusedMultiplyAdd(Real a, Real b, Real c, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : Math.Max(Math.Max(a.Precision, b.Precision), c.Precision);
+        int prec = ResolvePrecision(precision, Math.Max(Math.Max(a.Precision, b.Precision), c.Precision));
         if (a._kind == Kind.Normal && b._kind == Kind.Normal)
         {
             BigInt pm = a._man * b._man;

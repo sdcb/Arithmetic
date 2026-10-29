@@ -173,7 +173,7 @@ public readonly partial struct Real
         {
             return false;
         }
-        int prec = precision != 0 ? precision : DefaultPrecision;
+        int prec = ResolvePrecision(precision, DefaultPrecision);
 
         bool neg = false;
         if (s[0] is '+' or '-')

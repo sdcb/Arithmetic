@@ -28,7 +28,7 @@ public readonly partial struct Real
     /// <summary>Secant 1/cos(x) (mpfr_sec).</summary>
     public static Real Sec(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         return x._kind switch
         {
             Kind.NaN or Kind.Inf => MakeNaN(prec),
@@ -40,7 +40,7 @@ public readonly partial struct Real
     /// <summary>Cosecant 1/sin(x) (mpfr_csc).</summary>
     public static Real Csc(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         return x._kind switch
         {
             Kind.NaN or Kind.Inf => MakeNaN(prec),
@@ -52,7 +52,7 @@ public readonly partial struct Real
     /// <summary>Cotangent cos(x)/sin(x) (mpfr_cot).</summary>
     public static Real Cot(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         return x._kind switch
         {
             Kind.NaN or Kind.Inf => MakeNaN(prec),
@@ -64,7 +64,7 @@ public readonly partial struct Real
     /// <summary>Hyperbolic secant 1/cosh(x) (mpfr_sech).</summary>
     public static Real Sech(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         return x._kind switch
         {
             Kind.NaN => MakeNaN(prec),
@@ -77,7 +77,7 @@ public readonly partial struct Real
     /// <summary>Hyperbolic cosecant 1/sinh(x) (mpfr_csch).</summary>
     public static Real Csch(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         return x._kind switch
         {
             Kind.NaN => MakeNaN(prec),
@@ -90,7 +90,7 @@ public readonly partial struct Real
     /// <summary>Hyperbolic cotangent 1/tanh(x) (mpfr_coth).</summary>
     public static Real Coth(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         return x._kind switch
         {
             Kind.NaN => MakeNaN(prec),
@@ -139,7 +139,7 @@ public readonly partial struct Real
     /// <summary>sin(πx) (mpfr_sinpi).</summary>
     public static Real SinPi(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
         {
             case Kind.NaN:
@@ -172,7 +172,7 @@ public readonly partial struct Real
     /// <summary>cos(πx) (mpfr_cospi).</summary>
     public static Real CosPi(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
         {
             case Kind.NaN:
@@ -204,7 +204,7 @@ public readonly partial struct Real
     /// <summary>tan(πx) (mpfr_tanpi).</summary>
     public static Real TanPi(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
         {
             case Kind.NaN:
@@ -258,7 +258,7 @@ public readonly partial struct Real
 
     private static Real ExpBaseM1(Real x, int b, int precision, RealRounding rounding)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
         {
             case Kind.NaN:
@@ -305,7 +305,7 @@ public readonly partial struct Real
 
     private static Real LogBaseP1(Real x, int b, int precision, RealRounding rounding)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
         {
             case Kind.NaN:
@@ -351,7 +351,7 @@ public readonly partial struct Real
     /// <summary>Natural logarithm of an unsigned integer (mpfr_log_ui).</summary>
     public static Real Log(ulong n, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : DefaultPrecision;
+        int prec = ResolvePrecision(precision, DefaultPrecision);
         if (n == 0)
         {
             return MakeInf(negative: true, prec);
@@ -420,14 +420,14 @@ public readonly partial struct Real
     /// <summary>EulerGamma-Mascheroni constant γ (mpfr_const_euler).</summary>
     public static Real EulerGamma(int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : DefaultPrecision;
+        int prec = ResolvePrecision(precision, DefaultPrecision);
         return Ziv(prec, rounding, wp => (EulerFixed(wp), -wp, 64));
     }
 
     /// <summary>CatalanConstant's constant G (mpfr_const_catalan).</summary>
     public static Real CatalanConstant(int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : DefaultPrecision;
+        int prec = ResolvePrecision(precision, DefaultPrecision);
         return Ziv(prec, rounding, wp => (CatalanFixed(wp), -wp, 64));
     }
 
@@ -524,7 +524,7 @@ public readonly partial struct Real
     /// <summary>n! correctly rounded (mpfr_fac_ui).</summary>
     public static Real Factorial(ulong n, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : DefaultPrecision;
+        int prec = ResolvePrecision(precision, DefaultPrecision);
         if (n <= 100000)
         {
             return FromBigInt(BigInt.Factorial(n), prec, rounding);
@@ -550,11 +550,11 @@ public readonly partial struct Real
 
     /// <summary>n^m for unsigned integers (mpfr_ui_pow_ui).</summary>
     internal static Real UiPowUi(ulong n, ulong m, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
-        => PowUi(FromBigInt(new BigInt(n), 66), m, precision != 0 ? precision : DefaultPrecision, rounding);
+        => PowUi(FromBigInt(new BigInt(n), 66), m, ResolvePrecision(precision, DefaultPrecision), rounding);
 
     /// <summary>n^x for an unsigned integer base (mpfr_ui_pow).</summary>
     internal static Real UiPow(ulong n, Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
-        => Pow(FromBigInt(new BigInt(n), 66), x, precision != 0 ? precision : x.Precision, rounding);
+        => Pow(FromBigInt(new BigInt(n), 66), x, ResolvePrecision(precision, x.Precision), rounding);
 
     /// <summary>
     /// x^y defined as exp(y log x) (mpfr_powr, IEEE powr): NaN for x &lt; 0, and the
@@ -562,7 +562,7 @@ public readonly partial struct Real
     /// </summary>
     public static Real Powr(Real x, Real y, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : Math.Max(x.Precision, y.Precision);
+        int prec = ResolvePrecision(precision, Math.Max(x.Precision, y.Precision));
         if (x._kind == Kind.NaN || y._kind == Kind.NaN || (x.IsNeg && x._kind != Kind.Zero))
         {
             return MakeNaN(prec);
@@ -588,7 +588,7 @@ public readonly partial struct Real
     /// <summary>(1 + x)^n (mpfr_compound_si); NaN for x &lt; -1.</summary>
     public static Real Compound(Real x, long n, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         if (n == 0)
         {
             return ExactOne(prec, rounding);
@@ -636,7 +636,7 @@ public readonly partial struct Real
         {
             return RootN(x, (uint)k, precision, rounding);
         }
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         if (k == 0)
         {
             return MakeNaN(prec);
@@ -703,7 +703,7 @@ public readonly partial struct Real
 
     /// <summary>Square root of an unsigned integer (mpfr_sqrt_ui).</summary>
     public static Real Sqrt(ulong n, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
-        => Sqrt(FromBigInt(new BigInt(n), 66), precision != 0 ? precision : DefaultPrecision, rounding);
+        => Sqrt(FromBigInt(new BigInt(n), 66), ResolvePrecision(precision, DefaultPrecision), rounding);
 
     // ---------------------------------------------------------------
     // Decomposition and remainders
@@ -712,7 +712,7 @@ public readonly partial struct Real
     /// <summary>Returns the integral part of x and its fractional part in <paramref name="fraction"/>, both with the sign of x (mpfr_modf).</summary>
     public static Real Truncate(Real x, out Real fraction, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
         {
             case Kind.NaN:
@@ -781,7 +781,7 @@ public readonly partial struct Real
     /// </summary>
     public static Real Decompose(Real x, out long exponent, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         exponent = 0;
         if (x._kind != Kind.Normal)
         {
@@ -806,7 +806,7 @@ public readonly partial struct Real
     /// <summary>Correctly rounded sum of all values with a single rounding (mpfr_sum).</summary>
     public static Real Sum(ReadOnlySpan<Real> values, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : DefaultPrecision;
+        int prec = ResolvePrecision(precision, DefaultPrecision);
         return SumExact(values, prec, rounding);
     }
 
@@ -817,7 +817,7 @@ public readonly partial struct Real
         {
             throw new ArgumentException("Vectors must have the same length.");
         }
-        int prec = precision != 0 ? precision : DefaultPrecision;
+        int prec = ResolvePrecision(precision, DefaultPrecision);
         var products = new Real[a.Length];
         for (int i = 0; i < a.Length; i++)
         {
@@ -906,14 +906,14 @@ public readonly partial struct Real
     /// <summary>m * 2^exponent rounded to the given precision (mpfr_set_z_2exp).</summary>
     public static Real FromBigInt(BigInt m, long exponent, int precision, RealRounding rounding = RealRounding.NearestEven)
     {
-        ArgumentOutOfRangeException.ThrowIfLessThan(precision, MinPrecision);
+        ValidatePrecision(precision);
         return m.IsZero ? MakeZero(negative: false, precision) : Round(m.Abs(), exponent, sticky: false, m.Sign < 0, precision, rounding, out _);
     }
 
     /// <summary>A rational number correctly rounded (mpfr_set_q).</summary>
     public static Real FromRational(BigRational q, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : DefaultPrecision;
+        int prec = ResolvePrecision(precision, DefaultPrecision);
         BigInt num = q.Numerator, den = q.Denominator;
         if (num.IsZero)
         {

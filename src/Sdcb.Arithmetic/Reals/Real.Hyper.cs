@@ -9,7 +9,7 @@ public readonly partial struct Real
     /// <summary>Hyperbolic sine (mpfr_sinh).</summary>
     public static Real Sinh(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
         {
             case Kind.NaN:
@@ -43,7 +43,7 @@ public readonly partial struct Real
     /// <summary>Hyperbolic cosine (mpfr_cosh).</summary>
     public static Real Cosh(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
         {
             case Kind.NaN:
@@ -69,7 +69,7 @@ public readonly partial struct Real
     /// <summary>Hyperbolic tangent (mpfr_tanh).</summary>
     public static Real Tanh(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
         {
             case Kind.NaN:
@@ -117,7 +117,7 @@ public readonly partial struct Real
     /// <summary>Inverse hyperbolic sine: ln(x + sqrt(x²+1)) (mpfr_asinh).</summary>
     public static Real Asinh(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
         {
             case Kind.NaN:
@@ -146,7 +146,7 @@ public readonly partial struct Real
     /// <summary>Inverse hyperbolic cosine: ln(x + sqrt(x²-1)) for x >= 1 (mpfr_acosh).</summary>
     public static Real Acosh(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         if (x._kind == Kind.NaN || x._kind == Kind.Zero || x.IsNeg)
         {
             return MakeNaN(prec);
@@ -181,7 +181,7 @@ public readonly partial struct Real
     /// <summary>Inverse hyperbolic tangent for |x| &lt; 1 (mpfr_atanh).</summary>
     public static Real Atanh(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
         {
             case Kind.NaN:

@@ -11,7 +11,7 @@ public readonly partial struct Real
     /// <summary>e^x correctly rounded (mpfr_exp).</summary>
     public static Real Exp(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
         {
             case Kind.NaN:
@@ -74,7 +74,7 @@ public readonly partial struct Real
 
     private static Real ExpScaled(Real x, int b, int precision, RealRounding rounding)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
         {
             case Kind.NaN:
@@ -136,7 +136,7 @@ public readonly partial struct Real
     /// <summary>e^x - 1 with full accuracy near zero (mpfr_expm1).</summary>
     public static Real ExpM1(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
         {
             case Kind.NaN:
@@ -178,7 +178,7 @@ public readonly partial struct Real
     /// <summary>Natural logarithm, correctly rounded (mpfr_log).</summary>
     public static Real Log(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         Real? special = LogSpecial(x, prec);
         if (special.HasValue)
         {
@@ -343,7 +343,7 @@ public readonly partial struct Real
 
     private static Real LogScaled(Real x, int b, int precision, RealRounding rounding)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         Real? special = LogSpecial(x, prec);
         if (special.HasValue)
         {
@@ -384,7 +384,7 @@ public readonly partial struct Real
     /// <summary>ln(1+x) accurate near zero (mpfr_log1p): 2*atanh(x/(2+x)).</summary>
     public static Real LogP1(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
     {
-        int prec = precision != 0 ? precision : x.Precision;
+        int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
         {
             case Kind.NaN:
