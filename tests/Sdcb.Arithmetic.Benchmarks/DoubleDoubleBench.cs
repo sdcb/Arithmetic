@@ -14,7 +14,8 @@ public class DoubleDoubleBench
 {
     private const int P = 106;
 
-    private DoubleDouble _a, _b;
+    private DoubleDouble _a, _b, _c, _cRes;
+    private BigFloat _rc;
     private double _da, _db;
     private BigFloat _ra, _rb;
     private Mpfr.MpfrT _ma, _mb, _mr;
@@ -24,6 +25,9 @@ public class DoubleDoubleBench
     {
         _a = DoubleDouble.Sqrt(2.0);  // ~1.414, full 106-bit operands
         _b = DoubleDouble.Sqrt(3.0);
+        _c = new DoubleDouble(0.7, 1e-20);
+        _cRes = -(_a * _b);
+        _rc = _c;
         _da = _a.Hi;
         _db = _b.Hi;
         _ra = BigFloat.Sqrt(BigFloat.FromDouble(2.0, P), P);
@@ -52,6 +56,12 @@ public class DoubleDoubleBench
     [Benchmark, BenchmarkCategory("Mul")] public double Double_Mul() => _da * _db;
     [Benchmark, BenchmarkCategory("Mul")] public BigFloat BigFloat_Mul() => BigFloat.Multiply(_ra, _rb, P);
     [Benchmark, BenchmarkCategory("Mul")] public int Mpfr_Mul() => Mpfr.Mul(ref _mr, ref _ma, ref _mb, 0);
+
+    // c = 0.7 (no cancellation) and c = -fl(a*b) (the residual, ~106-bit cancellation).
+    [Benchmark(Baseline = true), BenchmarkCategory("Fma")] public DoubleDouble DD_FmaEstimate() => DoubleDouble.MultiplyAddEstimate(_a, _b, _c);
+    [Benchmark, BenchmarkCategory("Fma")] public DoubleDouble DD_Fma() => DoubleDouble.FusedMultiplyAdd(_a, _b, _c);
+    [Benchmark, BenchmarkCategory("Fma")] public DoubleDouble DD_FmaResidual() => DoubleDouble.FusedMultiplyAdd(_a, _b, _cRes);
+    [Benchmark, BenchmarkCategory("Fma")] public BigFloat BigFloat_Fma() => BigFloat.FusedMultiplyAdd(_ra, _rb, _rc, P);
 
     [Benchmark(Baseline = true), BenchmarkCategory("Div")] public DoubleDouble DD_Div() => _a / _b;
     [Benchmark, BenchmarkCategory("Div")] public double Double_Div() => _da / _db;

@@ -265,26 +265,87 @@ public readonly partial struct DoubleDouble
     }
 
     /// <summary>
-    /// (left · right) + addend with the product kept unrounded: it is formed in quad-double
-    /// (~212 bits, so the product of two double-doubles is effectively exact), added in quad-double
-    /// and rounded once to double-double. When the sum cancels by more than 90 bits it is recomputed
-    /// exactly through <see cref="BigFloat"/>, so the result is accurate to ~2^-104 relative even for
-    /// residuals such as a·b − fl(a·b). Use <see cref="MultiplyAddEstimate"/> for the fast unfused form.
+    /// (left · right) + addend with the product kept unrounded, accurate to about 2^-106 relative
+    /// even under cancellation (e.g. residuals a·b − fl(a·b)). The product is split exactly into
+    /// eight doubles by four TwoProd. When the signs or magnitudes rule out cancellation they are
+    /// added directly (~13 ns); otherwise the ten terms (with the addend's two words) are distilled
+    /// by VecSum passes until a certified bound shows the leading pair is accurate (~40 ns for a
+    /// residual). Cancellation beyond ~190 bits falls back to an exact <see cref="BigFloat"/>
+    /// evaluation. In generic code that only needs speed, use <see cref="MultiplyAddEstimate"/>
+    /// (the unfused form, about twice as fast).
     /// </summary>
     public static DoubleDouble FusedMultiplyAdd(DoubleDouble left, DoubleDouble right, DoubleDouble addend)
     {
-        QuadDouble p = (QuadDouble)left * right;
-        if (!double.IsFinite(p.X0) || !double.IsFinite(addend._hi) || p.X0 == 0 || addend._hi == 0)
+        double ah = left._hi, al = left._lo, bh = right._hi, bl = right._lo, ch = addend._hi;
+        double p0 = ErrorFree.TwoProd(ah, bh, out double e0);
+        if (!double.IsFinite(p0) || !double.IsFinite(ch))
         {
-            return double.IsFinite(p.X0) ? (DoubleDouble)(p + addend) : Math.FusedMultiplyAdd(left._hi, right._hi, addend._hi);
+            return Math.FusedMultiplyAdd(ah, bh, ch); // NaN, ±∞ and ∞·0 follow double semantics
         }
-        QuadDouble s = p + addend;
-        if (Math.Abs(s.X0) >= Math.Max(Math.Abs(p.X0), Math.Abs(addend._hi)) * 8.077935669463161E-28 /* 2^-90 */)
+        if (p0 == 0.0 || ch == 0.0)
         {
-            return (DoubleDouble)s;
+            return left * right + addend; // a zero term: nothing to cancel, keeps signed-zero rules
         }
-        return FromBigFloat(BigFloat.FusedMultiplyAdd(left.ToBigFloatExact(), right.ToBigFloatExact(), addend.ToBigFloatExact(), 320));
+        double ap = Math.Abs(p0), ac = Math.Abs(ch);
+        if (ap < 1e-241 /* ~2^-800 */ || ap > 1e301 /* ~2^1000 */ || ac > 1e301)
+        {
+            // TwoProd/TwoSum lose exactness near underflow and may overflow near the top of the range.
+            return FusedMultiplyAddExact(left, right, addend);
+        }
+
+        double cl = addend._lo;
+        double p1 = ErrorFree.TwoProd(ah, bl, out double e1);
+        double p2 = ErrorFree.TwoProd(al, bh, out double e2);
+
+        // No cancellation possible (same signs, or magnitudes ≥ 4× apart so |result| ≥ max/2):
+        // the product to ~2^-159·|ab| as p0 + m + low, then one accurate double-double addition.
+        // Absolute errors are ~2^-106·max(|ab|, |c|), so ≤ ~2^-105 relative to the result.
+        if ((p0 > 0) == (ch > 0) || ap >= 4 * ac || ac >= 4 * ap)
+        {
+            double m = ErrorFree.TwoSum(p1, p2, out double r1);
+            m = ErrorFree.TwoSum(m, e0, out double r2);
+            double low = r1 + r2 + e1 + e2 + al * bl;
+            double s = ErrorFree.TwoSum(p0, ch, out double se);
+            double v = ErrorFree.TwoSum(m, cl, out double ve);
+            v = ErrorFree.TwoSum(v, se, out double ve2);
+            double hi0 = ErrorFree.FastTwoSum(s, v, out double lo0);
+            return new DoubleDouble(hi0, lo0 + (low + ve + ve2));
+        }
+
+        // Possible cancellation: the exact sum of these ten terms is a·b + c. Distil it with VecSum
+        // passes (x9 becomes fl(Σ), every other term the exact error of one partial sum) until the
+        // terms below (x9, x8) are negligible.
+        double x0 = ErrorFree.TwoProd(al, bl, out double e3);
+        double x9 = p0, x8 = ch, x7 = e0, x6 = cl, x5 = e2, x4 = p2, x3 = e1, x2 = p1, x1 = x0;
+        x0 = e3;
+        for (int pass = 0; pass < 5; pass++)
+        {
+            x1 = ErrorFree.TwoSum(x0, x1, out x0);
+            x2 = ErrorFree.TwoSum(x1, x2, out x1);
+            x3 = ErrorFree.TwoSum(x2, x3, out x2);
+            x4 = ErrorFree.TwoSum(x3, x4, out x3);
+            x5 = ErrorFree.TwoSum(x4, x5, out x4);
+            x6 = ErrorFree.TwoSum(x5, x6, out x5);
+            x7 = ErrorFree.TwoSum(x6, x7, out x6);
+            x8 = ErrorFree.TwoSum(x7, x8, out x7);
+            x9 = ErrorFree.TwoSum(x8, x9, out x8);
+            // After a pass |x8| ≤ ulp(x9)/2, so (x9, x8) is a double-double; it is the answer once
+            // the other eight terms are negligible: tail ≤ 2^-108·|x9| keeps their total, plus the
+            // final rounding of x8 + Σtail (≤ u·|x8| ≈ 2^-106·|x9|), within ~2^-105.7 relative.
+            // The 2^-900 floor keeps the terms clear of subnormal rounding.
+            double tail = Math.Abs(x0) + Math.Abs(x1) + Math.Abs(x2) + Math.Abs(x3)
+                        + Math.Abs(x4) + Math.Abs(x5) + Math.Abs(x6) + Math.Abs(x7);
+            double ah9 = Math.Abs(x9);
+            if (tail <= ah9 * (1.0 / (1L << 54) / (1L << 54)) /* 2^-108 */ && (ah9 >= 1e-271 /* ~2^-900 */ || x9 == 0.0))
+            {
+                return new DoubleDouble(x9, x8 + (((x0 + x1) + (x2 + x3)) + ((x4 + x5) + (x6 + x7))));
+            }
+        }
+        return FusedMultiplyAddExact(left, right, addend);
     }
+
+    private static DoubleDouble FusedMultiplyAddExact(DoubleDouble left, DoubleDouble right, DoubleDouble addend) =>
+        FromBigFloat(BigFloat.FusedMultiplyAdd(left.ToBigFloatExact(), right.ToBigFloatExact(), addend.ToBigFloatExact(), 320));
 
     /// <summary>
     /// left * right + addend, unfused: the product is first rounded to double-double, so the result

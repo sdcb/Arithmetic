@@ -82,9 +82,77 @@ public class FixedFloatApiTests
             BigFloat exact = BigFloat.FusedMultiplyAdd(a, b, c, 600);
             double e = Log2RelErr(DoubleDouble.FusedMultiplyAdd(a, b, c), exact);
             worst = Math.Max(worst, e);
-            Assert.True(e < -103, $"FMA error 2^{e} at ({a}, {b}, {c})");
+            Assert.True(e < -105, $"FMA error 2^{e} at ({a}, {b}, {c})");
         }
-        Assert.True(worst < -103);
+        Assert.True(worst < -105);
+    }
+
+    private static DoubleDouble RandomDd(Random rng, int minExp, int maxExp)
+    {
+        double hi = RandomDouble(rng, minExp, maxExp);
+        // Low words of every size, including gaps far below ulp(hi) and zero.
+        double lo = rng.Next(5) == 0 ? 0.0 : hi * Math.ScaleB(rng.NextDouble() - 0.5, -53 - rng.Next(0, 60));
+        return new DoubleDouble(hi, lo);
+    }
+
+    [Fact]
+    public void FusedMultiplyAddMatchesExactAcrossInputClasses()
+    {
+        var rng = new Random(24);
+        for (int i = 0; i < 60000; i++)
+        {
+            DoubleDouble a = RandomDd(rng, -300, 300), b = RandomDd(rng, -300, 300);
+            DoubleDouble c = (i % 6) switch
+            {
+                0 => RandomDd(rng, -600, 600),                                            // unrelated magnitude
+                1 => -(a * b),                                                            // residual of the rounded product
+                2 => -(DoubleDouble)((QuadDouble)a * b),                                  // deeper cancellation
+                3 => -(a * b) + (a * b) * Math.ScaleB(rng.NextDouble() - 0.5, -rng.Next(1, 100)), // partial
+                4 => (a * b) * RandomDouble(rng, -2, 2),                                  // same order, random sign
+                _ => (a * b) * Math.ScaleB(1.0, rng.Next(-200, 200)),                     // large gaps
+            };
+            BigFloat exact = BigFloat.FusedMultiplyAdd(a, b, c, 800);
+            DoubleDouble got = DoubleDouble.FusedMultiplyAdd(a, b, c);
+            double e = Log2RelErr(got, exact);
+            Assert.True(e < -105, $"case {i % 6}: FMA error 2^{e} at ({a.Hi}, {a.Lo}) ({b.Hi}, {b.Lo}) ({c.Hi}, {c.Lo})");
+        }
+    }
+
+    [Fact]
+    public void FusedMultiplyAddEdgeRanges()
+    {
+        // Exact zero result is +0.
+        DoubleDouble a = new(3.0, 0), b = new(5.0, 0);
+        DoubleDouble r = DoubleDouble.FusedMultiplyAdd(a, b, new DoubleDouble(-15.0, 0));
+        Assert.Equal(0.0, r.Hi);
+        Assert.False(double.IsNegative(r.Hi));
+
+        var rng = new Random(25);
+        foreach (int scale in new[] { -1000, -900, -850, -800, 950, 1000, 1010 })
+        {
+            for (int i = 0; i < 300; i++)
+            {
+                DoubleDouble x = RandomDd(rng, scale / 2 - 2, scale / 2 + 2), y = RandomDd(rng, scale / 2 - 2, scale / 2 + 2);
+                DoubleDouble z = i % 2 == 0 ? -(x * y) : RandomDd(rng, scale - 3, scale + 3);
+                if (!double.IsFinite((x * y).Hi) || !double.IsFinite(z.Hi))
+                {
+                    continue;
+                }
+                BigFloat exact = BigFloat.FusedMultiplyAdd(x, y, z, 2400);
+                DoubleDouble got = DoubleDouble.FusedMultiplyAdd(x, y, z);
+                BigFloat expected = DoubleDouble.FromBigFloat(exact);
+                // Near the subnormal range double-double itself only has ~53 bits; compare to the
+                // nearest double-double there, elsewhere require the full bound.
+                if (Math.Abs(((double)expected)) < Math.ScaleB(1.0, -969))
+                {
+                    Assert.Equal(expected.ToDouble(), got.Hi);
+                }
+                else
+                {
+                    Assert.True(Log2RelErr(got, exact) < -105, $"scale {scale}: ({x}, {y}, {z})");
+                }
+            }
+        }
     }
 
     [Fact]
