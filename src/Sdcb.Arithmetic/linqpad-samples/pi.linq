@@ -5,18 +5,18 @@
 </Query>
 
 // Computes π to N decimal digits two ways and checks that they agree:
-//   1. Real.Pi: the built-in correctly-rounded constant (Chudnovsky + Ziv rounding).
+//   1. BigFloat.Pi: the built-in correctly-rounded constant (Chudnovsky + Ziv rounding).
 //   2. Chudnovsky series with binary splitting, written here using only BigInt.
 void Main()
 {
 	int digits = 1_000_000;
 
-	// 1. Real.Pi: log2(10) ≈ 3.3219 bits per decimal digit, plus a few guard bits.
+	// 1. BigFloat.Pi: log2(10) ≈ 3.3219 bits per decimal digit, plus a few guard bits.
 	Stopwatch sw = Stopwatch.StartNew();
 	int bits = (int)Math.Ceiling(digits * Math.Log2(10)) + 64;
-	Real pi = Real.Pi(bits);
-	string agm = pi.ToString(digits + 1, RealRounding.TowardZero).Replace(".", "")[..(digits + 1)];
-	Console.WriteLine($"{$"Real.Pi ({bits} bits)",-30}: {sw.ElapsedMilliseconds,6} ms");
+	BigFloat pi = BigFloat.Pi(bits);
+	string agm = pi.ToString(digits + 1, RoundingMode.TowardZero).Replace(".", "")[..(digits + 1)];
+	Console.WriteLine($"{$"BigFloat.Pi ({bits} bits)",-30}: {sw.ElapsedMilliseconds,6} ms");
 
 	// 2. Chudnovsky: π = 426880·√10005·Q / T, ~14.18 digits per term.
 	sw.Restart();

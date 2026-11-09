@@ -6,7 +6,7 @@ namespace Sdcb.Arithmetic;
 public readonly partial struct QuadDouble
 {
     // ---------------------------------------------------------------
-    // Formatting (exact value printed through Real; invariant culture)
+    // Formatting (exact value printed through BigFloat; invariant culture)
     // ---------------------------------------------------------------
 
     /// <summary>
@@ -41,7 +41,7 @@ public readonly partial struct QuadDouble
             int span = Math.ILogB(x0) - Math.Max(Math.ILogB(last) - 52, -1074) + 1;
             nd = Math.Max(RoundTripDigits, 3 + (int)Math.Ceiling(span * 0.3010299956639812));
         }
-        string s = ToRealExact(this).ToString(nd);
+        string s = ToBigFloatExact(this).ToString(nd);
         return significantDigits == 0 && nd > RoundTripDigits ? PadDigits(s, nd) : s;
     }
 
@@ -76,7 +76,7 @@ public readonly partial struct QuadDouble
 
     /// <summary>
     /// Formats the value. <paramref name="format"/> may be null, empty, "G" or "R" (round-trip digits) or
-    /// "G<i>n</i>" / "E<i>n</i>" (<i>n</i> significant digits); output is culture-invariant like <see cref="Real"/>.
+    /// "G<i>n</i>" / "E<i>n</i>" (<i>n</i> significant digits); output is culture-invariant like <see cref="BigFloat"/>.
     /// </summary>
     public string ToString(string? format, IFormatProvider? formatProvider = null) => ToString(DigitsFromFormat(format));
 
@@ -119,7 +119,7 @@ public readonly partial struct QuadDouble
         NumberText.TryWriteUtf8(ToString(DigitsFromFormat(format)), utf8Destination, out bytesWritten);
 
     // ---------------------------------------------------------------
-    // Parsing (decimal text rounded through a Real sized from the digit count)
+    // Parsing (decimal text rounded through a BigFloat sized from the digit count)
     // ---------------------------------------------------------------
 
     /// <summary>
@@ -158,11 +158,11 @@ public readonly partial struct QuadDouble
             }
         }
         long prec = Math.Max(214, (long)Math.Floor((digits - 1) * 3.321928094887362) - 2);
-        if (!Real.TryParse(s, (int)Math.Min(prec, 1 << 24), RealRounding.NearestEven, out Real r))
+        if (!BigFloat.TryParse(s, (int)Math.Min(prec, 1 << 24), RoundingMode.NearestEven, out BigFloat r))
         {
             return false;
         }
-        result = FromReal(r);
+        result = FromBigFloat(r);
         return true;
     }
 

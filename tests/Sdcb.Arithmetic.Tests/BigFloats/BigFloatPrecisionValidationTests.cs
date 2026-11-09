@@ -1,10 +1,10 @@
 using System.Reflection;
 using Xunit;
 
-namespace Sdcb.Arithmetic.Tests.Reals;
+namespace Sdcb.Arithmetic.Tests.BigFloats;
 
 /// <summary>An explicit precision outside [2, int.MaxValue / 64] must be rejected; 0 means the default (issue #7).</summary>
-public class RealPrecisionValidationTests
+public class BigFloatPrecisionValidationTests
 {
     private const int MaxPrecision = int.MaxValue / 64;
 
@@ -17,15 +17,15 @@ public class RealPrecisionValidationTests
     [InlineData(1, MaxPrecision + 1)]
     public void FromBigInt_InvalidPrecision_Throws(int m, int p)
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => Real.FromBigInt(new BigInt(m), p));
+        Assert.Throws<ArgumentOutOfRangeException>(() => BigFloat.FromBigInt(new BigInt(m), p));
     }
 
     [Fact]
     public void FromBigInt_PrecisionZeroIsDefault()
     {
-        Assert.True(Real.FromBigInt(BigInt.Zero, 0).IsZero);
-        Assert.Equal(Real.DefaultPrecision, Real.FromBigInt(BigInt.One, 0).Precision);
-        Assert.Equal(2, Real.FromBigInt(BigInt.One, 2).Precision);
+        Assert.True(BigFloat.FromBigInt(BigInt.Zero, 0).IsZero);
+        Assert.Equal(BigFloat.DefaultPrecision, BigFloat.FromBigInt(BigInt.One, 0).Precision);
+        Assert.Equal(2, BigFloat.FromBigInt(BigInt.One, 2).Precision);
     }
 
     // RoundSmall / RoundLimbs: padding, truncation and rounding carry must not wrap the exponent.
@@ -43,11 +43,11 @@ public class RealPrecisionValidationTests
     [MemberData(nameof(OverflowCases))]
     public void FromBigInt_NormalizedExponentOverflow_Throws(BigInt m, long e, int p)
     {
-        Assert.Throws<OverflowException>(() => Real.FromBigInt(m, e, p));
+        Assert.Throws<OverflowException>(() => BigFloat.FromBigInt(m, e, p));
     }
 
     public static IEnumerable<object[]> PrecisionMethods() =>
-        typeof(Real).GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+        typeof(BigFloat).GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance | BindingFlags.DeclaredOnly)
             .Where(m => !m.IsGenericMethodDefinition && m.GetParameters().Any(p => p.Name == "precision" && p.ParameterType == typeof(int)))
             .Where(m => m.GetParameters().All(p => !p.ParameterType.IsByRefLike && !(p.ParameterType.IsByRef && p.ParameterType.GetElementType()!.IsByRefLike)))
             .Select(m => new object[] { m.ToString()! });
@@ -56,12 +56,12 @@ public class RealPrecisionValidationTests
     [MemberData(nameof(PrecisionMethods))]
     public void EveryPublicPrecisionParameter_IsValidated(string signature)
     {
-        MethodInfo method = typeof(Real).GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+        MethodInfo method = typeof(BigFloat).GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance | BindingFlags.DeclaredOnly)
             .Single(m => m.ToString() == signature);
         foreach (int bad in new[] { 1, -1, MaxPrecision + 1 })
         {
             object?[] args = method.GetParameters().Select(p => p.Name == "precision" ? bad : Sample(p.ParameterType)).ToArray();
-            object? target = method.IsStatic ? null : Real.FromDouble(1.5, 64);
+            object? target = method.IsStatic ? null : BigFloat.FromDouble(1.5, 64);
             TargetInvocationException ex = Assert.Throws<TargetInvocationException>(() => method.Invoke(target, args));
             Assert.IsType<ArgumentOutOfRangeException>(ex.InnerException);
         }
@@ -73,7 +73,7 @@ public class RealPrecisionValidationTests
         {
             return null; // out parameter
         }
-        if (t == typeof(Real)) return Real.FromDouble(1.5, 64);
+        if (t == typeof(BigFloat)) return BigFloat.FromDouble(1.5, 64);
         if (t == typeof(BigInt)) return new BigInt(3);
         if (t == typeof(BigRational)) return new BigRational(3, 2);
         if (t == typeof(double)) return 1.5;
@@ -83,7 +83,7 @@ public class RealPrecisionValidationTests
         if (t == typeof(string)) return "1.5";
         if (t == typeof(bool)) return false;
         if (t == typeof(Random)) return new Random(1);
-        if (t == typeof(RealRounding)) return RealRounding.NearestEven;
+        if (t == typeof(RoundingMode)) return RoundingMode.NearestEven;
         if (t == typeof(IFormatProvider)) return null;
         if (t == typeof(int)) return 3;
         if (t == typeof(long)) return 3L;

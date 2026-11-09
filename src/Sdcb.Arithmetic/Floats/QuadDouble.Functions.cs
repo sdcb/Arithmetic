@@ -8,7 +8,7 @@ namespace Sdcb.Arithmetic;
 /// k·ln 2/64 and a table of 2^(j/64) followed by a Taylor series; log by one Newton correction of a double
 /// estimate through expm1 plus a short log1p series; sin/cos by reduction modulo π/256 with tables of
 /// sin(kπ/256) and cos(kπ/256) and short Taylor series; atan2 by one rotation correcting a double estimate.
-/// Arguments of trigonometric functions beyond about 2^20 are reduced exactly through <see cref="Real"/>.
+/// Arguments of trigonometric functions beyond about 2^20 are reduced exactly through <see cref="BigFloat"/>.
 /// </summary>
 public readonly partial struct QuadDouble
 {
@@ -648,7 +648,7 @@ public readonly partial struct QuadDouble
 
     /// <summary>
     /// x = j·π/256 + r with |r| ≲ π/512; returns r and j mod 512. Uses six-part π with exact
-    /// products for |j| ≤ 2^28 when r is not tiny, otherwise reduces exactly through <see cref="Real"/>.
+    /// products for |j| ≤ 2^28 when r is not tiny, otherwise reduces exactly through <see cref="BigFloat"/>.
     /// </summary>
     private static QuadDouble ReduceTrig(QuadDouble x, out int octant)
     {
@@ -677,15 +677,15 @@ public readonly partial struct QuadDouble
                 return r;
             }
         }
-        // Exact reduction through Real for huge arguments or near-multiples of π/256.
-        Real rx = ToRealExact(x);
+        // Exact reduction through BigFloat for huge arguments or near-multiples of π/256.
+        BigFloat rx = ToBigFloatExact(x);
         int prec = Math.Max(Math.ILogB(x._x0), 0) + rx.Precision + 600;
-        Real step = Real.Pi(prec).ShiftRight(8);
-        Real q = Real.Round(Real.Divide(rx, step, prec));
-        Real rr = Real.Subtract(rx, Real.Multiply(q, step, prec), prec);
+        BigFloat step = BigFloat.Pi(prec).ShiftRight(8);
+        BigFloat q = BigFloat.Round(BigFloat.Divide(rx, step, prec));
+        BigFloat rr = BigFloat.Subtract(rx, BigFloat.Multiply(q, step, prec), prec);
         BigInt qi = q.ToBigInt();
         octant = (int)(long)(qi & new BigInt(511));
-        return FromReal(rr);
+        return FromBigFloat(rr);
     }
 
     /// <summary>

@@ -7,7 +7,7 @@ namespace Sdcb.Arithmetic;
 public readonly partial struct DoubleDouble
 {
     /// <summary>Enough bits for any exact double-double (2^1024 down to 2^-1074) plus guard bits.</summary>
-    private const int RealExactPrecision = 1100;
+    private const int BigFloatExactPrecision = 1100;
 
     // ---------------------------------------------------------------
     // Implicit (exact) conversions
@@ -50,42 +50,42 @@ public readonly partial struct DoubleDouble
     // ---------------------------------------------------------------
 
     /// <summary>Nearest double-double (the 128-bit value may need more than 106 bits).</summary>
-    public static explicit operator DoubleDouble(Int128 value) => FromReal(Real.FromBigInt(new BigInt(value), 0, RealExactPrecision));
+    public static explicit operator DoubleDouble(Int128 value) => FromBigFloat(BigFloat.FromBigInt(new BigInt(value), 0, BigFloatExactPrecision));
 
     /// <summary>Nearest double-double (the 128-bit value may need more than 106 bits).</summary>
-    public static explicit operator DoubleDouble(UInt128 value) => FromReal(Real.FromBigInt(new BigInt(value), 0, RealExactPrecision));
+    public static explicit operator DoubleDouble(UInt128 value) => FromBigFloat(BigFloat.FromBigInt(new BigInt(value), 0, BigFloatExactPrecision));
 
     /// <summary>Nearest double-double of the decimal value.</summary>
     public static explicit operator DoubleDouble(decimal value)
     {
-        DoubleDouble r = FromReal(Real.FromDecimal(value, 256));
+        DoubleDouble r = FromBigFloat(BigFloat.FromDecimal(value, 256));
         return r._hi == 0.0 && decimal.IsNegative(value) ? CopySign(r, NegativeOne) : r;
     }
 
     /// <summary>Nearest double-double; ±∞ beyond the double range.</summary>
-    public static explicit operator DoubleDouble(BigInt value) => FromReal(Real.FromBigInt(value));
+    public static explicit operator DoubleDouble(BigInt value) => FromBigFloat(BigFloat.FromBigInt(value));
 
     /// <summary>Nearest double-double; ±∞ beyond the double range.</summary>
-    public static explicit operator DoubleDouble(BigInteger value) => FromReal(Real.FromBigInt((BigInt)value));
+    public static explicit operator DoubleDouble(BigInteger value) => FromBigFloat(BigFloat.FromBigInt((BigInt)value));
 
     /// <summary>Nearest double-double of the rational.</summary>
-    public static explicit operator DoubleDouble(BigRational value) => FromReal(Real.FromRational(value, 256));
+    public static explicit operator DoubleDouble(BigRational value) => FromBigFloat(BigFloat.FromRational(value, 256));
 
-    /// <summary>Rounds to the nearest double-double (see <see cref="FromReal(Real)"/>).</summary>
-    public static explicit operator DoubleDouble(Real value) => FromReal(value);
+    /// <summary>Rounds to the nearest double-double (see <see cref="FromBigFloat(BigFloat)"/>).</summary>
+    public static explicit operator DoubleDouble(BigFloat value) => FromBigFloat(value);
 
     /// <summary>
-    /// Rounds a <see cref="Real"/> to double-double: Hi = RN(value), Lo = RN(value - Hi).
+    /// Rounds a <see cref="BigFloat"/> to double-double: Hi = RN(value), Lo = RN(value - Hi).
     /// Values beyond <see cref="MaxValue"/> become ±∞ (or ±MaxValue when they would round into it).
     /// </summary>
-    public static DoubleDouble FromReal(Real value)
+    public static DoubleDouble FromBigFloat(BigFloat value)
     {
         double hi = value.ToDouble();
         if (!double.IsFinite(hi) || hi == 0.0)
         {
             return new DoubleDouble(hi, 0.0, normalized: true);
         }
-        double lo = Real.Subtract(value, Real.FromDouble(hi, 53), 53).ToDouble();
+        double lo = BigFloat.Subtract(value, BigFloat.FromDouble(hi, 53), 53).ToDouble();
         double s = hi + lo;
         if (!double.IsFinite(s))
         {
@@ -96,28 +96,28 @@ public readonly partial struct DoubleDouble
     }
 
     // ---------------------------------------------------------------
-    // Exact conversion to Real
+    // Exact conversion to BigFloat
     // ---------------------------------------------------------------
 
     /// <summary>
-    /// Exact: Hi + Lo as a <see cref="Real"/> with precision max(<see cref="Real.DefaultPrecision"/>,
+    /// Exact: Hi + Lo as a <see cref="BigFloat"/> with precision max(<see cref="BigFloat.DefaultPrecision"/>,
     /// the bits the sum needs).
     /// </summary>
-    public static implicit operator Real(DoubleDouble value) => value.ToRealExact(Real.DefaultPrecision);
+    public static implicit operator BigFloat(DoubleDouble value) => value.ToBigFloatExact(BigFloat.DefaultPrecision);
 
-    /// <summary>The exact value as a Real with at least <paramref name="minPrecision"/> bits.</summary>
-    internal Real ToRealExact(int minPrecision = 2)
+    /// <summary>The exact value as a BigFloat with at least <paramref name="minPrecision"/> bits.</summary>
+    internal BigFloat ToBigFloatExact(int minPrecision = 2)
     {
         if (!double.IsFinite(_hi) || _hi == 0.0 || _lo == 0.0)
         {
-            return Real.FromDouble(_hi, Math.Max(minPrecision, 53));
+            return BigFloat.FromDouble(_hi, Math.Max(minPrecision, 53));
         }
         BigInt mh = Significand(_hi, out long eh);
         BigInt ml = Significand(_lo, out long el);
         long e = Math.Min(eh, el);
         BigInt m = mh.ShiftLeft(eh - e) + ml.ShiftLeft(el - e);
         int bits = (int)m.Abs().GetBitLength();
-        return Real.FromBigInt(m, e, Math.Max(minPrecision, bits));
+        return BigFloat.FromBigInt(m, e, Math.Max(minPrecision, bits));
     }
 
     /// <summary>Signed integer significand and lsb exponent of a finite nonzero double.</summary>
@@ -154,12 +154,12 @@ public readonly partial struct DoubleDouble
         {
             return f;
         }
-        return value.ToRealExact().ToSingle();
+        return value.ToBigFloatExact().ToSingle();
     }
 
     /// <summary>Correctly rounded to Half.</summary>
     public static explicit operator System.Half(DoubleDouble value) =>
-        value._lo == 0.0 ? (System.Half)value._hi : value.ToRealExact().ToHalf();
+        value._lo == 0.0 ? (System.Half)value._hi : value.ToBigFloatExact().ToHalf();
 
     private static bool IsFloatMidpoint(double d, float f)
     {
@@ -174,7 +174,7 @@ public readonly partial struct DoubleDouble
         {
             throw new OverflowException("Value does not fit in Decimal.");
         }
-        return value.ToRealExact().ToDecimal();
+        return value.ToBigFloatExact().ToDecimal();
     }
 
     /// <summary>Truncates toward zero; throws <see cref="OverflowException"/> for NaN or ±∞.</summary>
@@ -190,7 +190,7 @@ public readonly partial struct DoubleDouble
         {
             throw new OverflowException("Cannot convert NaN or Infinity to BigRational.");
         }
-        return value.ToRealExact().ToRational();
+        return value.ToBigFloatExact().ToRational();
     }
 
     private BigInt ToBigIntTruncated()
@@ -204,7 +204,7 @@ public readonly partial struct DoubleDouble
     }
 
     // Integer conversions truncate toward zero and throw OverflowException for NaN, ±∞ and
-    // out-of-range values (like Real).
+    // out-of-range values (like BigFloat).
     public static explicit operator sbyte(DoubleDouble value) => ToInteger<sbyte>(value, ConvertMode.Checked);
     public static explicit operator byte(DoubleDouble value) => ToInteger<byte>(value, ConvertMode.Checked);
     public static explicit operator short(DoubleDouble value) => ToInteger<short>(value, ConvertMode.Checked);
@@ -341,9 +341,9 @@ public readonly partial struct DoubleDouble
             result = (DoubleDouble)(BigRational)(object)value;
             return true;
         }
-        if (typeof(TOther) == typeof(Real))
+        if (typeof(TOther) == typeof(BigFloat))
         {
-            result = FromReal((Real)(object)value);
+            result = FromBigFloat((BigFloat)(object)value);
             return true;
         }
         result = default;
@@ -391,9 +391,9 @@ public readonly partial struct DoubleDouble
             result = (TOther)(object)m;
             return true;
         }
-        if (typeof(TOther) == typeof(Real))
+        if (typeof(TOther) == typeof(BigFloat))
         {
-            result = (TOther)(object)(Real)value;
+            result = (TOther)(object)(BigFloat)value;
             return true;
         }
         if (typeof(TOther) == typeof(BigInteger) || typeof(TOther) == typeof(BigInt) || typeof(TOther) == typeof(BigRational))

@@ -6,11 +6,11 @@ using Sdcb.Arithmetic.Core;
 namespace Sdcb.Arithmetic;
 
 /// <summary>
-/// Limb-level helpers that let Real work directly on the Nat limb kernels: intermediate
+/// Limb-level helpers that let BigFloat work directly on the Nat limb kernels: intermediate
 /// products, quotients and aligned sums live in pooled/stack scratch, and only the final
 /// rounded significand is allocated.
 /// </summary>
-public readonly partial struct Real
+public readonly partial struct BigFloat
 {
     /// <summary>Scratch buffers up to this many limbs are stack allocated.</summary>
     private const int StackLimbs = 64;
@@ -131,7 +131,7 @@ public readonly partial struct Real
     /// sign * (m + θ) * 2^e, θ ∈ (0,1) iff sticky, rounded to prec bits with a single
     /// allocation for the result significand.
     /// </summary>
-    internal static Real RoundLimbs(ReadOnlySpan<ulong> m, long e, bool sticky, bool negative, int prec, RealRounding rnd, out int ternary)
+    internal static BigFloat RoundLimbs(ReadOnlySpan<ulong> m, long e, bool sticky, bool negative, int prec, RoundingMode rnd, out int ternary)
     {
         int mn = Nat.TrimmedLength(m, m.Length);
         Debug.Assert(mn > 0);
@@ -156,7 +156,7 @@ public readonly partial struct Real
                 return RoundSticky(w, qn, checked(e + drop), negative, prec, rnd, out ternary);
             }
             ternary = 0;
-            return new Real(new BigInt(w, qn), checked(e + drop), prec, Kind.Normal, negative);
+            return new BigFloat(new BigInt(w, qn), checked(e + drop), prec, Kind.Normal, negative);
         }
 
         bool guard = TestBit(m, drop - 1);
@@ -179,11 +179,11 @@ public readonly partial struct Real
         {
             bool roundUp = rnd switch
             {
-                RealRounding.NearestEven => guard && (stickyLow || (q[0] & 1) != 0),
-                RealRounding.TowardZero => false,
-                RealRounding.AwayFromZero => true,
-                RealRounding.TowardPositive => !negative,
-                RealRounding.TowardNegative => negative,
+                RoundingMode.NearestEven => guard && (stickyLow || (q[0] & 1) != 0),
+                RoundingMode.TowardZero => false,
+                RoundingMode.AwayFromZero => true,
+                RoundingMode.TowardPositive => !negative,
+                RoundingMode.TowardNegative => negative,
                 _ => throw new ArgumentOutOfRangeException(nameof(rnd)),
             };
             if (roundUp)
@@ -196,22 +196,22 @@ public readonly partial struct Real
                 ternary = negative ? 1 : -1;
             }
         }
-        return new Real(new BigInt(q, qn), e, prec, Kind.Normal, negative);
+        return new BigFloat(new BigInt(q, qn), e, prec, Kind.Normal, negative);
     }
 
     /// <summary>
     /// A prec-bit significand w followed by a sticky θ ∈ (0,1) with no guard bit: matches the
     /// BigInt rounding core, where nearest-even only rounds up when the guard bit is set.
     /// </summary>
-    private static Real RoundSticky(ulong[] w, int qn, long e, bool negative, int prec, RealRounding rnd, out int ternary)
+    private static BigFloat RoundSticky(ulong[] w, int qn, long e, bool negative, int prec, RoundingMode rnd, out int ternary)
     {
         bool roundUp = rnd switch
         {
-            RealRounding.NearestEven => false,
-            RealRounding.TowardZero => false,
-            RealRounding.AwayFromZero => true,
-            RealRounding.TowardPositive => !negative,
-            RealRounding.TowardNegative => negative,
+            RoundingMode.NearestEven => false,
+            RoundingMode.TowardZero => false,
+            RoundingMode.AwayFromZero => true,
+            RoundingMode.TowardPositive => !negative,
+            RoundingMode.TowardNegative => negative,
             _ => throw new ArgumentOutOfRangeException(nameof(rnd)),
         };
         if (roundUp)
@@ -223,7 +223,7 @@ public readonly partial struct Real
         {
             ternary = negative ? 1 : -1;
         }
-        return new Real(new BigInt(w, qn), e, prec, Kind.Normal, negative);
+        return new BigFloat(new BigInt(w, qn), e, prec, Kind.Normal, negative);
     }
 
     /// <summary>q[0..qn) += 1 for a prec-bit significand, renormalizing 2^prec to 2^(prec-1).</summary>
@@ -243,7 +243,7 @@ public readonly partial struct Real
     /// CanRound on limbs without allocating: with F = m mod 2^drop and 1 &lt;= err &lt;= 2^62,
     /// rounding is ambiguous when F &lt; err, F &gt;= 2^drop - err, or (nearest) |F - 2^(drop-1)| &lt;= err.
     /// </summary>
-    private static bool CanRoundLimbs(ReadOnlySpan<ulong> m, long drop, ulong err, RealRounding rnd)
+    private static bool CanRoundLimbs(ReadOnlySpan<ulong> m, long drop, ulong err, RoundingMode rnd)
     {
         Debug.Assert(drop >= 2 && err >= 1 && err <= 1UL << 62 && Nat.BitLength(m, m.Length) > drop);
         if (drop <= 65)
@@ -255,7 +255,7 @@ public readonly partial struct Real
             {
                 return false;
             }
-            if (rnd == RealRounding.NearestEven)
+            if (rnd == RoundingMode.NearestEven)
             {
                 UInt128 half = window >> 1;
                 UInt128 diff = f >= half ? f - half : half - f;
@@ -280,7 +280,7 @@ public readonly partial struct Real
         {
             return false;
         }
-        if (rnd == RealRounding.NearestEven)
+        if (rnd == RoundingMode.NearestEven)
         {
             if ((!top && midOnes && l0 >= negErr) || (top && midZero && l0 <= err))
             {
@@ -321,7 +321,7 @@ public readonly partial struct Real
 
     /// <summary>Round(|a| * |b| * 2^e) with the product in scratch.</summary>
     [SkipLocalsInit]
-    private static Real MulRound(BigInt a, BigInt b, long e, bool negative, int prec, RealRounding rnd, out int ternary)
+    private static BigFloat MulRound(BigInt a, BigInt b, long e, bool negative, int prec, RoundingMode rnd, out int ternary)
     {
         int rn = a.LimbCount + b.LimbCount;
         using var s = new Scratch(stackalloc ulong[StackLimbs], rn);
@@ -331,7 +331,7 @@ public readonly partial struct Real
 
     /// <summary>Round((|a| &lt;&lt; s) / |b| * 2^e) with numerator, quotient and remainder in scratch.</summary>
     [SkipLocalsInit]
-    private static Real DivRound(BigInt a, long s, BigInt b, long e, bool negative, int prec, RealRounding rnd, out int ternary)
+    private static BigFloat DivRound(BigInt a, long s, BigInt b, long e, bool negative, int prec, RoundingMode rnd, out int ternary)
     {
         int an = a.LimbCount, dn = b.LimbCount;
         if (dn >= Nat.BZThreshold)
@@ -365,7 +365,7 @@ public readonly partial struct Real
 
     /// <summary>Round(sqrt(|a| &lt;&lt; s) * 2^e) with the shifted operand and root in scratch.</summary>
     [SkipLocalsInit]
-    private static Real SqrtRound(BigInt a, long s, long e, int prec, RealRounding rnd, out int ternary)
+    private static BigFloat SqrtRound(BigInt a, long s, long e, int prec, RoundingMode rnd, out int ternary)
     {
         if (prec >= SqrtApprMinBits)
         {
@@ -398,7 +398,7 @@ public readonly partial struct Real
     /// aligned into scratch (the caller bounds the exponent gap).
     /// </summary>
     [SkipLocalsInit]
-    private static Real AddRound(BigInt a, long ea, bool aNeg, BigInt b, long eb, bool bNeg, int prec, RealRounding rnd, out int ternary)
+    private static BigFloat AddRound(BigInt a, long ea, bool aNeg, BigInt b, long eb, bool bNeg, int prec, RoundingMode rnd, out int ternary)
     {
         long f = Math.Min(ea, eb);
         long sa = ea - f, sb = eb - f;
@@ -416,7 +416,7 @@ public readonly partial struct Real
         if (c == 0)
         {
             ternary = 0;
-            return MakeZero(rnd == RealRounding.TowardNegative, prec);
+            return MakeZero(rnd == RoundingMode.TowardNegative, prec);
         }
         if (c > 0)
         {
@@ -429,7 +429,7 @@ public readonly partial struct Real
 
     /// <summary>Round((|a| &lt;&lt; sh) ± θ) for the far-apart addition case: a sticky unit just below a's extended lsb.</summary>
     [SkipLocalsInit]
-    private static Real AddStickyRound(BigInt a, long sh, long e, bool subtract, bool negative, int prec, RealRounding rnd, out int ternary)
+    private static BigFloat AddStickyRound(BigInt a, long sh, long e, bool subtract, bool negative, int prec, RoundingMode rnd, out int ternary)
     {
         int n = LimbsFor(a.GetBitLength() + sh);
         using var sc = new Scratch(stackalloc ulong[StackLimbs], n);

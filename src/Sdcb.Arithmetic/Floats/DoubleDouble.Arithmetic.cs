@@ -182,7 +182,7 @@ public readonly partial struct DoubleDouble
 
     /// <summary>
     /// Truncated remainder with the sign of the dividend (like <see cref="double"/> %): computed
-    /// exactly through <see cref="Real"/> and then rounded to double-double.
+    /// exactly through <see cref="BigFloat"/> and then rounded to double-double.
     /// </summary>
     public static DoubleDouble operator %(DoubleDouble a, DoubleDouble b)
     {
@@ -194,8 +194,8 @@ public readonly partial struct DoubleDouble
         {
             return a;
         }
-        Real r = Real.TruncatedRemainder(a.ToRealExact(), b.ToRealExact(), 2 * RealExactPrecision);
-        DoubleDouble result = FromReal(r);
+        BigFloat r = BigFloat.TruncatedRemainder(a.ToBigFloatExact(), b.ToBigFloatExact(), 2 * BigFloatExactPrecision);
+        DoubleDouble result = FromBigFloat(r);
         return result._hi == 0.0 ? CopySign(Zero, a) : result;
     }
 
@@ -392,7 +392,7 @@ public readonly partial struct DoubleDouble
 
     /// <summary>
     /// Rounds to <paramref name="digits"/> decimal places: the exact decimal rounding (computed
-    /// with <see cref="Real"/>), then rounded to the nearest double-double.
+    /// with <see cref="BigFloat"/>), then rounded to the nearest double-double.
     /// </summary>
     public static DoubleDouble Round(DoubleDouble x, int digits, MidpointRounding mode)
     {
@@ -405,7 +405,7 @@ public readonly partial struct DoubleDouble
         {
             return x;
         }
-        DoubleDouble r = FromReal(Real.Round(x.ToRealExact(), digits, mode));
+        DoubleDouble r = FromBigFloat(BigFloat.Round(x.ToBigFloatExact(), digits, mode));
         return r._hi == 0.0 ? new DoubleDouble(double.CopySign(0.0, x._hi), 0.0, normalized: true) : r;
     }
 

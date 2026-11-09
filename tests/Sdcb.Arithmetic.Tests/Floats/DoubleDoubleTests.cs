@@ -8,27 +8,27 @@ namespace Sdcb.Arithmetic.Tests;
 
 public class DoubleDoubleTests(ITestOutputHelper output)
 {
-    private const int P = 300; // reference precision for Real
+    private const int P = 300; // reference precision for BigFloat
 
     // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
 
-    /// <summary>The exact value (independent of Real.DefaultPrecision, which other tests mutate).</summary>
-    private static Real R(DoubleDouble x) => (Real)x;
+    /// <summary>The exact value (independent of BigFloat.DefaultPrecision, which other tests mutate).</summary>
+    private static BigFloat R(DoubleDouble x) => (BigFloat)x;
 
     /// <summary>log2 of the relative error of got against exact (-inf when exact).</summary>
-    private static double Log2RelErr(DoubleDouble got, Real exact)
+    private static double Log2RelErr(DoubleDouble got, BigFloat exact)
     {
-        Real diff = Real.Subtract(R(got), exact, P);
+        BigFloat diff = BigFloat.Subtract(R(got), exact, P);
         if (diff.IsZero)
         {
             return double.NegativeInfinity;
         }
-        return Math.Log2(Math.Abs(Real.Divide(diff, exact, 64).ToDouble()));
+        return Math.Log2(Math.Abs(BigFloat.Divide(diff, exact, 64).ToDouble()));
     }
 
-    private static Real Rd(double d) => Real.FromDouble(d, P);
+    private static BigFloat Rd(double d) => BigFloat.FromDouble(d, P);
 
     /// <summary>A random double-double with a full random low word and binary exponent in [minExp, maxExp].</summary>
     private static DoubleDouble RandomDD(Random rng, int minExp, int maxExp, bool allowNegative = true)
@@ -43,12 +43,12 @@ public class DoubleDoubleTests(ITestOutputHelper output)
         return new DoubleDouble(hi, lo);
     }
 
-    private void AssertBound(string name, IEnumerable<(DoubleDouble Got, Real Exact, string Input)> cases, double log2Bound)
+    private void AssertBound(string name, IEnumerable<(DoubleDouble Got, BigFloat Exact, string Input)> cases, double log2Bound)
     {
         double worst = double.NegativeInfinity;
         string worstInput = "";
         int n = 0;
-        foreach ((DoubleDouble got, Real exact, string input) in cases)
+        foreach ((DoubleDouble got, BigFloat exact, string input) in cases)
         {
             n++;
             double e = Log2RelErr(got, exact);
@@ -87,22 +87,22 @@ public class DoubleDoubleTests(ITestOutputHelper output)
 
     [Theory]
     [MemberData(nameof(ConstantNames))]
-    public void ConstantsMatchReal(string name)
+    public void ConstantsMatchBigFloat(string name)
     {
-        (DoubleDouble dd, Real exact) = name switch
+        (DoubleDouble dd, BigFloat exact) = name switch
         {
-            "Pi" => (DoubleDouble.Pi, Real.Pi(P)),
-            "Tau" => (DoubleDouble.Tau, Real.Pi(P).ShiftLeft(1)),
-            "E" => (DoubleDouble.E, Real.E(P)),
-            "Ln2" => (DoubleDouble.Ln2, Real.Ln2(P)),
-            "Ln10" => (DoubleDouble.Ln10, Real.Log(Rd(10), P)),
+            "Pi" => (DoubleDouble.Pi, BigFloat.Pi(P)),
+            "Tau" => (DoubleDouble.Tau, BigFloat.Pi(P).ShiftLeft(1)),
+            "E" => (DoubleDouble.E, BigFloat.E(P)),
+            "Ln2" => (DoubleDouble.Ln2, BigFloat.Ln2(P)),
+            "Ln10" => (DoubleDouble.Ln10, BigFloat.Log(Rd(10), P)),
             _ => throw new ArgumentException(name),
         };
         double hi = exact.ToDouble();
-        double lo = Real.Subtract(exact, Rd(hi), 53).ToDouble();
+        double lo = BigFloat.Subtract(exact, Rd(hi), 53).ToDouble();
         Assert.Equal(hi, dd.Hi);
         Assert.Equal(lo, dd.Lo);
-        Assert.Equal(DoubleDouble.FromReal(exact), dd);
+        Assert.Equal(DoubleDouble.FromBigFloat(exact), dd);
         Assert.True(Log2RelErr(dd, exact) < -106);
     }
 
@@ -126,7 +126,7 @@ public class DoubleDoubleTests(ITestOutputHelper output)
     }
 
     // ---------------------------------------------------------------
-    // Basic arithmetic vs Real
+    // Basic arithmetic vs BigFloat
     // ---------------------------------------------------------------
 
     private static IEnumerable<(DoubleDouble A, DoubleDouble B)> RandomPairs(int seed, int count, int minExp = -60, int maxExp = 60)
@@ -149,10 +149,10 @@ public class DoubleDoubleTests(ITestOutputHelper output)
     [Fact]
     public void AdditionAndSubtraction()
     {
-        AssertBound("add", RandomPairs(1, 4000).Select(p => (p.A + p.B, Real.Add(R(p.A), R(p.B), P), S(p.A) + S(p.B))), -104);
-        AssertBound("sub", RandomPairs(2, 4000).Select(p => (p.A - p.B, Real.Subtract(R(p.A), R(p.B), P), S(p.A) + S(p.B))), -104);
-        AssertBound("add-double", RandomPairs(3, 4000).Select(p => (p.A + p.B.Hi, Real.Add(R(p.A), Rd(p.B.Hi), P), S(p.A) + p.B.Hi)), -104);
-        AssertBound("double-sub", RandomPairs(4, 4000).Select(p => (p.B.Hi - p.A, Real.Subtract(Rd(p.B.Hi), R(p.A), P), S(p.A) + p.B.Hi)), -104);
+        AssertBound("add", RandomPairs(1, 4000).Select(p => (p.A + p.B, BigFloat.Add(R(p.A), R(p.B), P), S(p.A) + S(p.B))), -104);
+        AssertBound("sub", RandomPairs(2, 4000).Select(p => (p.A - p.B, BigFloat.Subtract(R(p.A), R(p.B), P), S(p.A) + S(p.B))), -104);
+        AssertBound("add-double", RandomPairs(3, 4000).Select(p => (p.A + p.B.Hi, BigFloat.Add(R(p.A), Rd(p.B.Hi), P), S(p.A) + p.B.Hi)), -104);
+        AssertBound("double-sub", RandomPairs(4, 4000).Select(p => (p.B.Hi - p.A, BigFloat.Subtract(Rd(p.B.Hi), R(p.A), P), S(p.A) + p.B.Hi)), -104);
     }
 
     [Fact]
@@ -162,24 +162,24 @@ public class DoubleDoubleTests(ITestOutputHelper output)
         Assert.Equal(new DoubleDouble(1e-20, 0), a - 1.0);
         Assert.Equal(DoubleDouble.Zero, a - a);
         DoubleDouble b = DoubleDouble.Pi - 3.0;
-        Assert.True(Log2RelErr(b, Real.Subtract(R(DoubleDouble.Pi), Rd(3), P)) == double.NegativeInfinity);
+        Assert.True(Log2RelErr(b, BigFloat.Subtract(R(DoubleDouble.Pi), Rd(3), P)) == double.NegativeInfinity);
     }
 
     [Fact]
     public void Multiplication()
     {
-        AssertBound("mul", RandomPairs(5, 4000, -300, 300).Select(p => (p.A * p.B, Real.Multiply(R(p.A), R(p.B), P), S(p.A) + S(p.B))), -104);
-        AssertBound("mul-double", RandomPairs(6, 4000, -300, 300).Select(p => (p.A * p.B.Hi, Real.Multiply(R(p.A), Rd(p.B.Hi), P), S(p.A) + p.B.Hi)), -104);
-        AssertBound("square", RandomPairs(7, 4000, -300, 300).Select(p => (DoubleDouble.Square(p.A), Real.Multiply(R(p.A), R(p.A), P), S(p.A))), -104);
+        AssertBound("mul", RandomPairs(5, 4000, -300, 300).Select(p => (p.A * p.B, BigFloat.Multiply(R(p.A), R(p.B), P), S(p.A) + S(p.B))), -104);
+        AssertBound("mul-double", RandomPairs(6, 4000, -300, 300).Select(p => (p.A * p.B.Hi, BigFloat.Multiply(R(p.A), Rd(p.B.Hi), P), S(p.A) + p.B.Hi)), -104);
+        AssertBound("square", RandomPairs(7, 4000, -300, 300).Select(p => (DoubleDouble.Square(p.A), BigFloat.Multiply(R(p.A), R(p.A), P), S(p.A))), -104);
     }
 
     [Fact]
     public void Division()
     {
         // DWDivDW2 is proven to 15u² + 56u³ (< 2^-102.09); DWDivFP3 to 3u².
-        AssertBound("div", RandomPairs(8, 4000, -300, 300).Select(p => (p.A / p.B, Real.Divide(R(p.A), R(p.B), P), S(p.A) + S(p.B))), -102);
-        AssertBound("div-double", RandomPairs(9, 4000, -300, 300).Select(p => (p.A / p.B.Hi, Real.Divide(R(p.A), Rd(p.B.Hi), P), S(p.A) + p.B.Hi)), -104);
-        AssertBound("double-div", RandomPairs(10, 4000, -300, 300).Select(p => (p.B.Hi / p.A, Real.Divide(Rd(p.B.Hi), R(p.A), P), S(p.A) + p.B.Hi)), -102);
+        AssertBound("div", RandomPairs(8, 4000, -300, 300).Select(p => (p.A / p.B, BigFloat.Divide(R(p.A), R(p.B), P), S(p.A) + S(p.B))), -102);
+        AssertBound("div-double", RandomPairs(9, 4000, -300, 300).Select(p => (p.A / p.B.Hi, BigFloat.Divide(R(p.A), Rd(p.B.Hi), P), S(p.A) + p.B.Hi)), -104);
+        AssertBound("double-div", RandomPairs(10, 4000, -300, 300).Select(p => (p.B.Hi / p.A, BigFloat.Divide(Rd(p.B.Hi), R(p.A), P), S(p.A) + p.B.Hi)), -102);
     }
 
     [Fact]
@@ -187,16 +187,16 @@ public class DoubleDoubleTests(ITestOutputHelper output)
     {
         Random rng = new(11);
         DoubleDouble[] xs = Enumerable.Range(0, 3000).Select(_ => DoubleDouble.Abs(RandomDD(rng, -1000, 1000))).ToArray();
-        AssertBound("sqrt", xs.Select(x => (DoubleDouble.Sqrt(x), Real.Sqrt(R(x), P), S(x))), -104);
-        AssertBound("cbrt", xs.Select(x => (DoubleDouble.Cbrt(x), Real.Cbrt(R(x), P), S(x))), -103);
-        AssertBound("cbrt-neg", xs.Select(x => (DoubleDouble.Cbrt(-x), Real.Cbrt(-R(x), P), S(x))), -103);
+        AssertBound("sqrt", xs.Select(x => (DoubleDouble.Sqrt(x), BigFloat.Sqrt(R(x), P), S(x))), -104);
+        AssertBound("cbrt", xs.Select(x => (DoubleDouble.Cbrt(x), BigFloat.Cbrt(R(x), P), S(x))), -103);
+        AssertBound("cbrt-neg", xs.Select(x => (DoubleDouble.Cbrt(-x), BigFloat.Cbrt(-R(x), P), S(x))), -103);
         AssertBound("rootn", xs.Take(500).SelectMany(x => new[] { 3, 4, 5, 7, 10, 33 }.Select(n =>
-            (DoubleDouble.RootN(x, n), Real.RootN(R(x), (long)n, P), S(x) + " n=" + n))), -102);
+            (DoubleDouble.RootN(x, n), BigFloat.RootN(R(x), (long)n, P), S(x) + " n=" + n))), -102);
         Assert.Equal(DoubleDouble.Sqrt(new DoubleDouble(4.0, 0.0)), (DoubleDouble)2.0);
         Assert.True(DoubleDouble.IsNaN(DoubleDouble.Sqrt(-1.0)));
         Assert.True(double.IsNegative(DoubleDouble.Sqrt(-0.0).Hi));
         Assert.True(DoubleDouble.IsPositiveInfinity(DoubleDouble.Sqrt(double.PositiveInfinity)));
-        Assert.True(Log2RelErr(DoubleDouble.Sqrt(double.Epsilon), Real.Sqrt(Rd(double.Epsilon), P)) < -50);
+        Assert.True(Log2RelErr(DoubleDouble.Sqrt(double.Epsilon), BigFloat.Sqrt(Rd(double.Epsilon), P)) < -50);
     }
 
     [Fact]
@@ -235,8 +235,8 @@ public class DoubleDoubleTests(ITestOutputHelper output)
         for (int i = 0; i < 300; i++)
         {
             DoubleDouble a = RandomDD(rng, -20, 60), b = RandomDD(rng, -20, 20);
-            Real expected = Real.TruncatedRemainder(R(a), R(b), P);
-            Assert.Equal(DoubleDouble.FromReal(expected), a % b);
+            BigFloat expected = BigFloat.TruncatedRemainder(R(a), R(b), P);
+            Assert.Equal(DoubleDouble.FromBigFloat(expected), a % b);
         }
         Assert.Equal((DoubleDouble)1.5, (DoubleDouble)7.5 % 3.0);
         Assert.Equal((DoubleDouble)(-1.5), (DoubleDouble)(-7.5) % 3.0);
@@ -356,9 +356,9 @@ public class DoubleDoubleTests(ITestOutputHelper output)
         for (int i = 0; i < 500; i++)
         {
             DoubleDouble x = RandomDD(rng, -3, 80);
-            Assert.Equal(DoubleDouble.FromReal(Real.Floor(R(x))), DoubleDouble.Floor(x));
-            Assert.Equal(DoubleDouble.FromReal(Real.Ceiling(R(x))), DoubleDouble.Ceiling(x));
-            Assert.Equal(DoubleDouble.FromReal(Real.Round(R(x))), DoubleDouble.Round(x));
+            Assert.Equal(DoubleDouble.FromBigFloat(BigFloat.Floor(R(x))), DoubleDouble.Floor(x));
+            Assert.Equal(DoubleDouble.FromBigFloat(BigFloat.Ceiling(R(x))), DoubleDouble.Ceiling(x));
+            Assert.Equal(DoubleDouble.FromBigFloat(BigFloat.Round(R(x))), DoubleDouble.Round(x));
         }
     }
 
@@ -373,7 +373,7 @@ public class DoubleDoubleTests(ITestOutputHelper output)
     }
 
     // ---------------------------------------------------------------
-    // Transcendental functions vs Real
+    // Transcendental functions vs BigFloat
     // ---------------------------------------------------------------
 
     private static DoubleDouble[] Sample(int seed, int count, int minExp, int maxExp, bool positive = false)
@@ -392,19 +392,19 @@ public class DoubleDoubleTests(ITestOutputHelper output)
         }).ToArray();
     }
 
-    private void Check(string name, IEnumerable<DoubleDouble> xs, Func<DoubleDouble, DoubleDouble> f, Func<Real, Real> exact, double log2Bound = -100) =>
+    private void Check(string name, IEnumerable<DoubleDouble> xs, Func<DoubleDouble, DoubleDouble> f, Func<BigFloat, BigFloat> exact, double log2Bound = -100) =>
         AssertBound(name, xs.Select(x => (f(x), exact(R(x)), S(x))), log2Bound);
 
     [Fact]
     public void ExponentialFunctions()
     {
         DoubleDouble[] wide = [.. Uniform(20, 1500, -670, 709), .. Sample(21, 500, -60, 2)];
-        Check("exp", wide, DoubleDouble.Exp, x => Real.Exp(x, P));
-        Check("exp2", [.. Uniform(22, 1000, -965, 1023), .. Sample(23, 300, -60, 0)], DoubleDouble.Exp2, x => Real.Exp2(x, P));
-        Check("exp10", [.. Uniform(24, 1000, -290, 308), .. Sample(25, 300, -60, 0)], DoubleDouble.Exp10, x => Real.Exp10(x, P));
-        Check("expm1", [.. Sample(26, 1500, -300, 3), .. Uniform(27, 500, -50, 50)], DoubleDouble.ExpM1, x => Real.ExpM1(x, P));
-        Check("exp2m1", Sample(28, 800, -300, 3), DoubleDouble.Exp2M1, x => Real.Exp2M1(x, P));
-        Check("exp10m1", Sample(29, 800, -300, 2), DoubleDouble.Exp10M1, x => Real.Exp10M1(x, P));
+        Check("exp", wide, DoubleDouble.Exp, x => BigFloat.Exp(x, P));
+        Check("exp2", [.. Uniform(22, 1000, -965, 1023), .. Sample(23, 300, -60, 0)], DoubleDouble.Exp2, x => BigFloat.Exp2(x, P));
+        Check("exp10", [.. Uniform(24, 1000, -290, 308), .. Sample(25, 300, -60, 0)], DoubleDouble.Exp10, x => BigFloat.Exp10(x, P));
+        Check("expm1", [.. Sample(26, 1500, -300, 3), .. Uniform(27, 500, -50, 50)], DoubleDouble.ExpM1, x => BigFloat.ExpM1(x, P));
+        Check("exp2m1", Sample(28, 800, -300, 3), DoubleDouble.Exp2M1, x => BigFloat.Exp2M1(x, P));
+        Check("exp10m1", Sample(29, 800, -300, 2), DoubleDouble.Exp10M1, x => BigFloat.Exp10M1(x, P));
 
         Assert.Equal(DoubleDouble.One, DoubleDouble.Exp(0.0));
         Assert.Equal(DoubleDouble.One, DoubleDouble.Exp(-0.0));
@@ -417,24 +417,24 @@ public class DoubleDoubleTests(ITestOutputHelper output)
         Assert.Equal((DoubleDouble)1024.0, DoubleDouble.Exp2(10.0));
         Assert.True(Log2RelErr(DoubleDouble.Exp10(22.0), Rd(1e22)) < -104);
         Assert.Equal(DoubleDouble.NegativeOne, DoubleDouble.ExpM1(double.NegativeInfinity));
-        Assert.True(Log2RelErr(DoubleDouble.Exp(709.78), Real.Exp(Rd(709.78), P)) < -100);
+        Assert.True(Log2RelErr(DoubleDouble.Exp(709.78), BigFloat.Exp(Rd(709.78), P)) < -100);
     }
 
     [Fact]
     public void LogarithmicFunctions()
     {
         DoubleDouble[] pos = [.. Sample(30, 1500, -1020, 1020, positive: true), .. Uniform(31, 500, 0.5, 2.0)];
-        Check("log", pos, DoubleDouble.Log, x => Real.Log(x, P));
-        Check("log2", pos, DoubleDouble.Log2, x => Real.Log2(x, P));
-        Check("log10", pos, DoubleDouble.Log10, x => Real.Log10(x, P));
+        Check("log", pos, DoubleDouble.Log, x => BigFloat.Log(x, P));
+        Check("log2", pos, DoubleDouble.Log2, x => BigFloat.Log2(x, P));
+        Check("log10", pos, DoubleDouble.Log10, x => BigFloat.Log10(x, P));
         // Values just around 1 (the cancellation-prone region).
         DoubleDouble[] near1 = Sample(32, 1000, -100, -2).Select(d => d + 1.0).ToArray();
-        Check("log-near-1", near1, DoubleDouble.Log, x => Real.Log(x, P));
+        Check("log-near-1", near1, DoubleDouble.Log, x => BigFloat.Log(x, P));
         DoubleDouble[] p1 = [.. Sample(33, 1500, -300, 6), .. Uniform(34, 300, -0.999, 0)];
-        Check("logp1", p1.Where(x => x > -1.0), DoubleDouble.LogP1, x => Real.LogP1(x, P));
-        Check("log2p1", p1.Where(x => x > -1.0), DoubleDouble.Log2P1, x => Real.Log2P1(x, P));
-        Check("log10p1", p1.Where(x => x > -1.0), DoubleDouble.Log10P1, x => Real.Log10P1(x, P));
-        Check("log-subnormal", [double.Epsilon, 3 * double.Epsilon, Math.ScaleB(1.5, -1050)], DoubleDouble.Log, x => Real.Log(x, P));
+        Check("logp1", p1.Where(x => x > -1.0), DoubleDouble.LogP1, x => BigFloat.LogP1(x, P));
+        Check("log2p1", p1.Where(x => x > -1.0), DoubleDouble.Log2P1, x => BigFloat.Log2P1(x, P));
+        Check("log10p1", p1.Where(x => x > -1.0), DoubleDouble.Log10P1, x => BigFloat.Log10P1(x, P));
+        Check("log-subnormal", [double.Epsilon, 3 * double.Epsilon, Math.ScaleB(1.5, -1050)], DoubleDouble.Log, x => BigFloat.Log(x, P));
 
         Assert.Equal(DoubleDouble.Zero, DoubleDouble.Log(1.0));
         Assert.Equal((DoubleDouble)(-3.0), DoubleDouble.Log2(0.125));
@@ -460,9 +460,9 @@ public class DoubleDoubleTests(ITestOutputHelper output)
             DoubleDouble y = Uniform(rng.Next(), 1, -16 / Math.Max(ly, 1), 16 / Math.Max(ly, 1))[0];
             pairs.Add((x, y));
         }
-        AssertBound("pow", pairs.Select(p => (DoubleDouble.Pow(p.X, p.Y), Real.Pow(R(p.X), R(p.Y), P), S(p.X) + S(p.Y))), -100);
+        AssertBound("pow", pairs.Select(p => (DoubleDouble.Pow(p.X, p.Y), BigFloat.Pow(R(p.X), R(p.Y), P), S(p.X) + S(p.Y))), -100);
         AssertBound("pow-int", Sample(41, 1000, -20, 20).SelectMany(x => new[] { 2, 3, 7, -5, 30 }.Select(n =>
-            (DoubleDouble.Pow(x, n), Real.Pow(R(x), (long)n, P), S(x) + " n=" + n))), -100);
+            (DoubleDouble.Pow(x, n), BigFloat.Pow(R(x), (long)n, P), S(x) + " n=" + n))), -100);
 
         Assert.Equal((DoubleDouble)243.0, DoubleDouble.Pow(3.0, 5.0));
         Assert.Equal((DoubleDouble)(-243.0), DoubleDouble.Pow(-3.0, 5.0));
@@ -479,14 +479,14 @@ public class DoubleDoubleTests(ITestOutputHelper output)
         Assert.Equal((DoubleDouble)(-2.0), DoubleDouble.RootN(-8.0, 3));
         Assert.Equal((DoubleDouble)0.5, DoubleDouble.RootN(16.0, -4));
         Assert.True(DoubleDouble.IsNaN(DoubleDouble.RootN(-16.0, 4)));
-        Assert.True(Log2RelErr(DoubleDouble.RootN(double.Epsilon, 5000), Real.RootN(Rd(double.Epsilon), 5000L, P)) < -100);
-        Assert.True(Log2RelErr(DoubleDouble.RootN(double.MaxValue, 7), Real.RootN(Rd(double.MaxValue), 7L, P)) < -100);
+        Assert.True(Log2RelErr(DoubleDouble.RootN(double.Epsilon, 5000), BigFloat.RootN(Rd(double.Epsilon), 5000L, P)) < -100);
+        Assert.True(Log2RelErr(DoubleDouble.RootN(double.MaxValue, 7), BigFloat.RootN(Rd(double.MaxValue), 7L, P)) < -100);
     }
 
     [Fact]
     public void Hypot()
     {
-        AssertBound("hypot", RandomPairs(42, 2000, -500, 500).Select(p => (DoubleDouble.Hypot(p.A, p.B), Real.Hypot(R(p.A), R(p.B), P), S(p.A) + S(p.B))), -103);
+        AssertBound("hypot", RandomPairs(42, 2000, -500, 500).Select(p => (DoubleDouble.Hypot(p.A, p.B), BigFloat.Hypot(R(p.A), R(p.B), P), S(p.A) + S(p.B))), -103);
         Assert.Equal((DoubleDouble)5.0, DoubleDouble.Hypot(3.0, -4.0));
         Assert.Equal(DoubleDouble.Hypot(Math.ScaleB(3.0, 1000), Math.ScaleB(4.0, 1000)), (DoubleDouble)Math.ScaleB(5.0, 1000));
         Assert.True(DoubleDouble.IsPositiveInfinity(DoubleDouble.Hypot(DoubleDouble.NaN, double.NegativeInfinity)));
@@ -496,12 +496,12 @@ public class DoubleDoubleTests(ITestOutputHelper output)
     public void TrigonometricFunctions()
     {
         DoubleDouble[] xs = [.. Uniform(50, 1500, -10, 10), .. Sample(51, 500, -300, 0), .. Uniform(52, 300, -1e6, 1e6)];
-        Check("sin", xs, DoubleDouble.Sin, x => Real.Sin(x, P));
-        Check("cos", xs, DoubleDouble.Cos, x => Real.Cos(x, P));
-        Check("tan", xs, DoubleDouble.Tan, x => Real.Tan(x, P));
-        Check("sincos.sin", xs, x => DoubleDouble.SinCos(x).Sin, x => Real.Sin(x, P));
-        Check("sincos.cos", xs, x => DoubleDouble.SinCos(x).Cos, x => Real.Cos(x, P));
-        // Huge arguments and near-multiples of π/2 go through the exact Real reduction.
+        Check("sin", xs, DoubleDouble.Sin, x => BigFloat.Sin(x, P));
+        Check("cos", xs, DoubleDouble.Cos, x => BigFloat.Cos(x, P));
+        Check("tan", xs, DoubleDouble.Tan, x => BigFloat.Tan(x, P));
+        Check("sincos.sin", xs, x => DoubleDouble.SinCos(x).Sin, x => BigFloat.Sin(x, P));
+        Check("sincos.cos", xs, x => DoubleDouble.SinCos(x).Cos, x => BigFloat.Cos(x, P));
+        // Huge arguments and near-multiples of π/2 go through the exact BigFloat reduction.
         DoubleDouble[] hard =
         [
             .. Sample(53, 100, 20, 1020),
@@ -510,15 +510,15 @@ public class DoubleDoubleTests(ITestOutputHelper output)
             DoubleDouble.Pi * 1e300,
             1e22, 6381956970095103.0 * Math.ScaleB(1.0, 797), // classic hard double for reduction
         ];
-        Check("sin-hard", hard, DoubleDouble.Sin, x => Real.Sin(x, P));
-        Check("cos-hard", hard, DoubleDouble.Cos, x => Real.Cos(x, P));
+        Check("sin-hard", hard, DoubleDouble.Sin, x => BigFloat.Sin(x, P));
+        Check("cos-hard", hard, DoubleDouble.Cos, x => BigFloat.Cos(x, P));
 
         DoubleDouble[] unit = [.. Uniform(54, 1500, -1, 1), .. Sample(55, 300, -300, -1)];
-        Check("asin", unit, DoubleDouble.Asin, x => Real.Asin(x, P));
-        Check("acos", unit, DoubleDouble.Acos, x => Real.Acos(x, P));
+        Check("asin", unit, DoubleDouble.Asin, x => BigFloat.Asin(x, P));
+        Check("acos", unit, DoubleDouble.Acos, x => BigFloat.Acos(x, P));
         DoubleDouble[] any = [.. Uniform(56, 1000, -5, 5), .. Sample(57, 800, -300, 300)];
-        Check("atan", any, DoubleDouble.Atan, x => Real.Atan(x, P));
-        AssertBound("atan2", RandomPairs(58, 2000, -300, 300).Select(p => (DoubleDouble.Atan2(p.A, p.B), Real.Atan2(R(p.A), R(p.B), P), S(p.A) + S(p.B))), -100);
+        Check("atan", any, DoubleDouble.Atan, x => BigFloat.Atan(x, P));
+        AssertBound("atan2", RandomPairs(58, 2000, -300, 300).Select(p => (DoubleDouble.Atan2(p.A, p.B), BigFloat.Atan2(R(p.A), R(p.B), P), S(p.A) + S(p.B))), -100);
 
         Assert.True(DoubleDouble.IsNaN(DoubleDouble.Sin(double.PositiveInfinity)));
         Assert.True(double.IsNegative(DoubleDouble.Sin(-0.0).Hi));
@@ -538,14 +538,14 @@ public class DoubleDoubleTests(ITestOutputHelper output)
     public void PiScaledTrigonometricFunctions()
     {
         DoubleDouble[] xs = [.. Uniform(60, 1500, -10, 10), .. Sample(61, 300, -300, 0), .. Uniform(62, 200, -1e15, 1e15)];
-        Check("sinpi", xs, DoubleDouble.SinPi, x => Real.SinPi(x, P));
-        Check("cospi", xs, DoubleDouble.CosPi, x => Real.CosPi(x, P));
-        Check("tanpi", xs, DoubleDouble.TanPi, x => Real.TanPi(x, P));
+        Check("sinpi", xs, DoubleDouble.SinPi, x => BigFloat.SinPi(x, P));
+        Check("cospi", xs, DoubleDouble.CosPi, x => BigFloat.CosPi(x, P));
+        Check("tanpi", xs, DoubleDouble.TanPi, x => BigFloat.TanPi(x, P));
         DoubleDouble[] unit = Uniform(63, 800, -1, 1);
-        Check("asinpi", unit, DoubleDouble.AsinPi, x => Real.AsinPi(x, P));
-        Check("acospi", unit, DoubleDouble.AcosPi, x => Real.AcosPi(x, P));
-        Check("atanpi", Uniform(64, 800, -50, 50), DoubleDouble.AtanPi, x => Real.AtanPi(x, P));
-        AssertBound("atan2pi", RandomPairs(65, 800, -30, 30).Select(p => (DoubleDouble.Atan2Pi(p.A, p.B), Real.Atan2Pi(R(p.A), R(p.B), P), S(p.A) + S(p.B))), -100);
+        Check("asinpi", unit, DoubleDouble.AsinPi, x => BigFloat.AsinPi(x, P));
+        Check("acospi", unit, DoubleDouble.AcosPi, x => BigFloat.AcosPi(x, P));
+        Check("atanpi", Uniform(64, 800, -50, 50), DoubleDouble.AtanPi, x => BigFloat.AtanPi(x, P));
+        AssertBound("atan2pi", RandomPairs(65, 800, -30, 30).Select(p => (DoubleDouble.Atan2Pi(p.A, p.B), BigFloat.Atan2Pi(R(p.A), R(p.B), P), S(p.A) + S(p.B))), -100);
 
         Assert.Equal(DoubleDouble.Zero, DoubleDouble.SinPi(3.0));
         Assert.Equal(DoubleDouble.NegativeOne, DoubleDouble.CosPi(3.0));
@@ -566,14 +566,14 @@ public class DoubleDoubleTests(ITestOutputHelper output)
     public void HyperbolicFunctions()
     {
         DoubleDouble[] xs = [.. Uniform(70, 1500, -30, 30), .. Sample(71, 500, -300, 1), .. Uniform(72, 200, -709, 709)];
-        Check("sinh", xs, DoubleDouble.Sinh, x => Real.Sinh(x, P));
-        Check("cosh", xs, DoubleDouble.Cosh, x => Real.Cosh(x, P));
-        Check("tanh", xs, DoubleDouble.Tanh, x => Real.Tanh(x, P));
-        Check("asinh", [.. xs, .. Sample(73, 300, 0, 1000)], DoubleDouble.Asinh, x => Real.Asinh(x, P));
+        Check("sinh", xs, DoubleDouble.Sinh, x => BigFloat.Sinh(x, P));
+        Check("cosh", xs, DoubleDouble.Cosh, x => BigFloat.Cosh(x, P));
+        Check("tanh", xs, DoubleDouble.Tanh, x => BigFloat.Tanh(x, P));
+        Check("asinh", [.. xs, .. Sample(73, 300, 0, 1000)], DoubleDouble.Asinh, x => BigFloat.Asinh(x, P));
         DoubleDouble[] ge1 = [.. Sample(74, 800, -300, -1, positive: true).Select(d => d + 1.0), .. Sample(75, 800, 0, 1000, positive: true)];
-        Check("acosh", ge1, DoubleDouble.Acosh, x => Real.Acosh(x, P));
+        Check("acosh", ge1, DoubleDouble.Acosh, x => BigFloat.Acosh(x, P));
         DoubleDouble[] unit = [.. Uniform(76, 1000, -0.999999, 0.999999), .. Sample(77, 500, -300, -1)];
-        Check("atanh", unit, DoubleDouble.Atanh, x => Real.Atanh(x, P));
+        Check("atanh", unit, DoubleDouble.Atanh, x => BigFloat.Atanh(x, P));
 
         Assert.True(DoubleDouble.IsPositiveInfinity(DoubleDouble.Cosh(-800.0)));
         Assert.True(DoubleDouble.IsNegativeInfinity(DoubleDouble.Sinh(-800.0)));
@@ -618,8 +618,8 @@ public class DoubleDoubleTests(ITestOutputHelper output)
     public void ParseIsNearest()
     {
         DoubleDouble tenth = DoubleDouble.Parse("0.1");
-        Real exact = Real.Divide(Rd(1), Rd(10), P);
-        Assert.Equal(DoubleDouble.FromReal(exact), tenth);
+        BigFloat exact = BigFloat.Divide(Rd(1), Rd(10), P);
+        Assert.Equal(DoubleDouble.FromBigFloat(exact), tenth);
         Assert.True(Log2RelErr(tenth, exact) < -106);
         Assert.Equal(DoubleDouble.One / 3.0, DoubleDouble.Parse("0.33333333333333333333333333333333333333333"));
         Assert.Equal(DoubleDouble.Pi, DoubleDouble.Parse("3.14159265358979323846264338327950288419716939937510"));
@@ -662,7 +662,7 @@ public class DoubleDoubleTests(ITestOutputHelper output)
         foreach (long v in longs)
         {
             DoubleDouble d = v;
-            Assert.Equal(R(d), Real.FromBigInt(new BigInt(v), 128));
+            Assert.Equal(R(d), BigFloat.FromBigInt(new BigInt(v), 128));
             Assert.Equal(v, (long)d);
             Assert.Equal(d.Hi, d.Hi + d.Lo);
         }
@@ -693,7 +693,7 @@ public class DoubleDoubleTests(ITestOutputHelper output)
     [Fact]
     public void FloatingAndDecimalConversions()
     {
-        Assert.Equal(DoubleDouble.FromReal(Real.FromDecimal(0.1m, P)), (DoubleDouble)0.1m);
+        Assert.Equal(DoubleDouble.FromBigFloat(BigFloat.FromDecimal(0.1m, P)), (DoubleDouble)0.1m);
         Assert.Equal(79228162514264337593543950335m, (decimal)(DoubleDouble)79228162514264337593543950335m);
         Assert.Equal(1.2345678901234567890123456789m, (decimal)(DoubleDouble)1.2345678901234567890123456789m);
         Assert.Throws<OverflowException>(() => (decimal)(DoubleDouble)1e30);
@@ -704,13 +704,13 @@ public class DoubleDoubleTests(ITestOutputHelper output)
         Assert.Equal(1.0f, (float)new DoubleDouble(mid, -1e-30));
         Assert.Equal((System.Half)1.5, (System.Half)(DoubleDouble)1.5);
         Assert.Equal(DoubleDouble.Pi.Hi, (double)DoubleDouble.Pi);
-        Assert.Equal(DoubleDouble.Pi, (DoubleDouble)Real.Pi(P));
+        Assert.Equal(DoubleDouble.Pi, (DoubleDouble)BigFloat.Pi(P));
         Assert.Equal(new DoubleDouble(1.0, Math.ScaleB(1.0, -200)), (DoubleDouble)(BigRational)new DoubleDouble(1.0, Math.ScaleB(1.0, -200)));
         Assert.Equal((DoubleDouble)0.5, (DoubleDouble)new BigRational(new BigInt(1), new BigInt(2)));
-        Assert.True(DoubleDouble.IsPositiveInfinity((DoubleDouble)Real.FromBigInt(BigInt.One << 2000)));
-        Assert.Equal(DoubleDouble.MaxValue, DoubleDouble.FromReal(R(DoubleDouble.MaxValue)));
-        Real exactSum = R(new DoubleDouble(1.0, Math.ScaleB(1.0, -1000)));
-        Assert.True(Real.Subtract(Real.Add(Rd(1), Rd(Math.ScaleB(1.0, -1000)), 2000), exactSum, 2000).IsZero);
+        Assert.True(DoubleDouble.IsPositiveInfinity((DoubleDouble)BigFloat.FromBigInt(BigInt.One << 2000)));
+        Assert.Equal(DoubleDouble.MaxValue, DoubleDouble.FromBigFloat(R(DoubleDouble.MaxValue)));
+        BigFloat exactSum = R(new DoubleDouble(1.0, Math.ScaleB(1.0, -1000)));
+        Assert.True(BigFloat.Subtract(BigFloat.Add(Rd(1), Rd(Math.ScaleB(1.0, -1000)), 2000), exactSum, 2000).IsZero);
     }
 
     [Fact]
@@ -731,7 +731,7 @@ public class DoubleDoubleTests(ITestOutputHelper output)
         Assert.Equal(DoubleDouble.Pi.Hi, double.CreateChecked(DoubleDouble.Pi));
         Assert.Equal(decimal.MaxValue, decimal.CreateSaturating((DoubleDouble)1e40));
         Assert.Equal(new BigInteger(3), BigInteger.CreateChecked((DoubleDouble)3.7));
-        Assert.Equal(DoubleDouble.Pi, DoubleDouble.CreateChecked(Real.Pi(P)));
+        Assert.Equal(DoubleDouble.Pi, DoubleDouble.CreateChecked(BigFloat.Pi(P)));
     }
 
     private static T Horner<T>(T x, params T[] coefficients) where T : IFloatingPoint<T>

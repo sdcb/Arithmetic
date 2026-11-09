@@ -24,12 +24,12 @@ Citations for each algorithm are in [references.md](references.md).
   squaring paths.
 - **Division**: reciprocal (`invert_limb`) preinversion + Knuth algorithm D,
   Burnikel-Ziegler divide-and-conquer, and a remainder-free approximate quotient
-  for `Real`. Exact division uses Jebelean's right-to-left scheme, a
+  for `BigFloat`. Exact division uses Jebelean's right-to-left scheme, a
   divide-and-conquer variant and Newton-Hensel.
 - **GCD**: subquadratic HGCD (half-GCD) over Lehmer's 62-bit inner loop, with
   canonical cofactor normalization.
 - **Square root**: Karatsuba recursive `mpn_sqrtrem`, plus a remainder-free
-  approximate root for `Real`.
+  approximate root for `BigFloat`.
 - **Modular exponentiation**: Montgomery REDC with sliding windows; large moduli
   reduce with two multiplications instead of a row-by-row REDC.
 - **Primality**: trial division + BPSW + extra Miller-Rabin rounds; next/previous
@@ -49,10 +49,10 @@ variables for tuning (see `Core/Nat.Mul.cs` and friends).
   stress patterns and Karatsuba/Toom-3/NTT-sized operands).
 - `gmp-exact` cross-verifies every `mpz` operation against native GMP
   (7,637 checks: exact agreement across randomized sizes and signs).
-- `exact` cross-verifies every `Real` function against native MPFR
+- `exact` cross-verifies every `BigFloat` function against native MPFR
   (56,370 checks: mantissa + exponent + kind, all five rounding modes,
   precisions 2–640).
-- At 53-bit precision, `Real`'s +, −, ×, ÷, sqrt and fma agree bit-for-bit with
+- At 53-bit precision, `BigFloat`'s +, −, ×, ÷, sqrt and fma agree bit-for-bit with
   IEEE double arithmetic on thousands of random inputs.
 - Every SIMD tier computes identical results. CI runs the suite at the default
   tier, with `DOTNET_PreferredVectorBitWidth=512`/`256`/`128` and with
@@ -68,11 +68,11 @@ src/Sdcb.Arithmetic/
   Core/Isa.cs                            vector tier checks (JIT-time constants)
   Integers/BigInt.*.cs                   mpz equivalent (partial struct)
   Rationals/BigRational.cs               mpq equivalent
-  Reals/Real.cs                          mpfr equivalent: representation + rounding core
-  Reals/Real.Arithmetic|Integer|Convert  ring ops, rint family, decimal I/O
-  Reals/Real.Ziv.cs                      Ziv loops + fixed-point helpers
-  Reals/Real.Kernels.cs                  limb-level rounding/ring/fixed-point kernels on Core/Nat
-  Reals/Real.Constants|Exp|Trig|Hyper|Pow  transcendental functions
+  BigFloats/BigFloat.cs                          mpfr equivalent: representation + rounding core
+  BigFloats/BigFloat.Arithmetic|Integer|Convert  ring ops, rint family, decimal I/O
+  BigFloats/BigFloat.Ziv.cs                      Ziv loops + fixed-point helpers
+  BigFloats/BigFloat.Kernels.cs                  limb-level rounding/ring/fixed-point kernels on Core/Nat
+  BigFloats/BigFloat.Constants|Exp|Trig|Hyper|Pow  transcendental functions
 tests/Sdcb.Arithmetic.Tests/             xunit suite
 tests/Sdcb.Arithmetic.Benchmarks/        BenchmarkDotNet + perf/exact harnesses vs native GMP/MPFR
 examples/                                runnable console demos (π, RSA, rounding, generic math)

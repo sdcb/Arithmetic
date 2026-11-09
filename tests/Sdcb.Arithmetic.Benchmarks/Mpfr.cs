@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 namespace Sdcb.Arithmetic.Benchmarks;
 
 /// <summary>
-/// Minimal P/Invoke surface over native MPFR (baseline for Real benchmarks).
+/// Minimal P/Invoke surface over native MPFR (baseline for BigFloat benchmarks).
 /// mpfr_t is treated as an opaque 32-byte block (larger than the native struct)
 /// and only manipulated through mpfr functions, avoiding layout assumptions.
 /// </summary>

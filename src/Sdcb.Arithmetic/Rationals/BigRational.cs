@@ -139,7 +139,7 @@ public readonly partial struct BigRational :
     public Half ToHalf() => (Half)ToIeee(IeeeFormat.Binary16);
 
     private double ToIeee(IeeeFormat format) =>
-        _num.IsZero ? 0.0 : Real.RationalToIeee(_num.Abs(), Denominator, _num.Sign < 0, format);
+        _num.IsZero ? 0.0 : BigFloat.RationalToIeee(_num.Abs(), Denominator, _num.Sign < 0, format);
 
     // ---------------------------------------------------------------
     // Arithmetic

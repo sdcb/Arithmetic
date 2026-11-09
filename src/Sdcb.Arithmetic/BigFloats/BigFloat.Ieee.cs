@@ -10,7 +10,7 @@ internal readonly record struct IeeeFormat(int Precision, int MinUlpExponent, in
     public static readonly IeeeFormat Binary16 = new(11, -24, 16);
 }
 
-public readonly partial struct Real
+public readonly partial struct BigFloat
 {
     /// <summary>
     /// Correctly rounds sign * (mag + θ) * 2^exp (θ ∈ (0,1) iff sticky) to an IEEE binary format,
@@ -18,7 +18,7 @@ public readonly partial struct Real
     /// format, so a final cast to float/Half is exact). When sticky is set the caller must
     /// supply at least two more bits than the format keeps.
     /// </summary>
-    internal static double RoundToIeee(BigInt mag, long exp, bool sticky, bool negative, IeeeFormat f, RealRounding rnd)
+    internal static double RoundToIeee(BigInt mag, long exp, bool sticky, bool negative, IeeeFormat f, RoundingMode rnd)
     {
         Debug.Assert(mag.Sign > 0);
         long bits = mag.GetBitLength();
@@ -45,11 +45,11 @@ public readonly partial struct Real
             {
                 bool up = rnd switch
                 {
-                    RealRounding.NearestEven => guard && (rest || (q & 1) != 0),
-                    RealRounding.TowardZero => false,
-                    RealRounding.AwayFromZero => true,
-                    RealRounding.TowardPositive => !negative,
-                    RealRounding.TowardNegative => negative,
+                    RoundingMode.NearestEven => guard && (rest || (q & 1) != 0),
+                    RoundingMode.TowardZero => false,
+                    RoundingMode.AwayFromZero => true,
+                    RoundingMode.TowardPositive => !negative,
+                    RoundingMode.TowardNegative => negative,
                     _ => throw new ArgumentOutOfRangeException(nameof(rnd)),
                 };
                 if (up)
@@ -70,13 +70,13 @@ public readonly partial struct Real
         return negative ? -d : d;
     }
 
-    private static double IeeeHuge(bool negative, RealRounding rnd, IeeeFormat f)
+    private static double IeeeHuge(bool negative, RoundingMode rnd, IeeeFormat f)
     {
         bool toInf = rnd switch
         {
-            RealRounding.TowardZero => false,
-            RealRounding.TowardPositive => !negative,
-            RealRounding.TowardNegative => negative,
+            RoundingMode.TowardZero => false,
+            RoundingMode.TowardPositive => !negative,
+            RoundingMode.TowardNegative => negative,
             _ => true,
         };
         if (toInf)
@@ -107,7 +107,7 @@ public readonly partial struct Real
     /// is <c>max(DefaultPrecision, 113)</c>); otherwise the value is rounded with <paramref name="rounding"/>.
     /// NaN payloads and the NaN sign are not preserved.
     /// </summary>
-    public static Real FromBinary128Bits(UInt128 bits, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat FromBinary128Bits(UInt128 bits, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, Math.Max(DefaultPrecision, Binary128Precision));
         bool neg = (bits & s_binary128SignBit) != 0;
@@ -133,7 +133,7 @@ public readonly partial struct Real
     /// with <paramref name="rounding"/>, including subnormals and overflow to ±∞ (or the largest finite
     /// value for directed roundings toward zero). NaN encodes as the positive quiet NaN.
     /// </summary>
-    public UInt128 ToBinary128Bits(RealRounding rounding = RealRounding.NearestEven)
+    public UInt128 ToBinary128Bits(RoundingMode rounding = RoundingMode.NearestEven)
     {
         UInt128 sign = IsNeg ? s_binary128SignBit : UInt128.Zero;
         switch (_kind)
@@ -172,11 +172,11 @@ public readonly partial struct Real
             {
                 bool up = rounding switch
                 {
-                    RealRounding.NearestEven => guard && (rest || (q & 1) != 0),
-                    RealRounding.TowardZero => false,
-                    RealRounding.AwayFromZero => true,
-                    RealRounding.TowardPositive => !negative,
-                    RealRounding.TowardNegative => negative,
+                    RoundingMode.NearestEven => guard && (rest || (q & 1) != 0),
+                    RoundingMode.TowardZero => false,
+                    RoundingMode.AwayFromZero => true,
+                    RoundingMode.TowardPositive => !negative,
+                    RoundingMode.TowardNegative => negative,
                     _ => throw new ArgumentOutOfRangeException(nameof(rounding)),
                 };
                 if (up)
@@ -217,14 +217,14 @@ public readonly partial struct Real
         return sign | (biased << 112) | (q & s_binary128FractionMask);
     }
 
-    private static UInt128 Binary128Huge(bool negative, RealRounding rnd)
+    private static UInt128 Binary128Huge(bool negative, RoundingMode rnd)
     {
         UInt128 sign = negative ? s_binary128SignBit : UInt128.Zero;
         bool toInf = rnd switch
         {
-            RealRounding.TowardZero => false,
-            RealRounding.TowardPositive => !negative,
-            RealRounding.TowardNegative => negative,
+            RoundingMode.TowardZero => false,
+            RoundingMode.TowardPositive => !negative,
+            RoundingMode.TowardNegative => negative,
             _ => true,
         };
         return toInf ? sign | s_binary128Infinity : sign | (s_binary128Infinity - 1);
@@ -237,7 +237,7 @@ public readonly partial struct Real
         long e0 = num.GetBitLength() - den.GetBitLength(); // value in (2^(e0-1), 2^(e0+1))
         if (e0 > f.MaxExponent + 2L)
         {
-            return IeeeHuge(negative, RealRounding.NearestEven, f);
+            return IeeeHuge(negative, RoundingMode.NearestEven, f);
         }
         if (e0 + 1 < f.MinUlpExponent - 1L)
         {
@@ -253,7 +253,7 @@ public readonly partial struct Real
         {
             BigInt.DivRem(num, den.ShiftLeft(u), out q, out r);
         }
-        return RoundToIeee(q, u, !r.IsZero, negative, f, RealRounding.NearestEven);
+        return RoundToIeee(q, u, !r.IsZero, negative, f, RoundingMode.NearestEven);
     }
 
     /// <summary>Exact decimal → rational (mantissa / 10^scale).</summary>

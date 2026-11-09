@@ -42,7 +42,7 @@ public static class Program
             return;
         }
         BenchmarkSwitcher
-            .FromTypes([typeof(MulBench), typeof(AddBench), typeof(DivBench), typeof(ToStringBench), typeof(PowModBench), typeof(GcdBench), typeof(RealArithBench), typeof(RealTransBench), typeof(DoubleDoubleBench), typeof(QuadDoubleBench), typeof(Float128Bench)])
+            .FromTypes([typeof(MulBench), typeof(AddBench), typeof(DivBench), typeof(ToStringBench), typeof(PowModBench), typeof(GcdBench), typeof(BigFloatArithBench), typeof(BigFloatTransBench), typeof(DoubleDoubleBench), typeof(QuadDoubleBench), typeof(Float128Bench)])
             .Run(args, DefaultConfig.Instance.AddJob(Job.ShortRun.WithWarmupCount(2).WithIterationCount(5)));
     }
 
@@ -76,7 +76,7 @@ public static class Program
         }
     }
 
-    /// <summary>Cross-checks Real against native MPFR: bit-exact at 53 bits, value-exact at 200 bits.</summary>
+    /// <summary>Cross-checks BigFloat against native MPFR: bit-exact at 53 bits, value-exact at 200 bits.</summary>
     private static void SmokeMpfr()
     {
         var rng = new Random(7);
@@ -87,13 +87,13 @@ public static class Program
         {
             double x = Math.ScaleB(rng.NextDouble() * 2 - 1, rng.Next(-40, 40));
             double y = Math.ScaleB(rng.NextDouble() * 2 - 1, rng.Next(-20, 20));
-            Real rx = Real.FromDouble(x, 53), ry = Real.FromDouble(y, 53);
+            BigFloat rx = BigFloat.FromDouble(x, 53), ry = BigFloat.FromDouble(y, 53);
             var mx = Mpfr.FromDouble(x, 53);
             var my = Mpfr.FromDouble(y, 53);
             Mpfr.MpfrT mr = default;
             Mpfr.Init2(ref mr, 53);
 
-            void Check(string what, Real ours)
+            void Check(string what, BigFloat ours)
             {
                 double a = ours.ToDouble(), b = Mpfr.GetD(ref mr, 0);
                 if (!a.Equals(b) && !(double.IsNaN(a) && double.IsNaN(b)))
@@ -103,18 +103,18 @@ public static class Program
                 checks++;
             }
 
-            Mpfr.Add(ref mr, ref mx, ref my, 0); Check("add", Real.Add(rx, ry, 53));
-            Mpfr.Mul(ref mr, ref mx, ref my, 0); Check("mul", Real.Multiply(rx, ry, 53));
-            Mpfr.Div(ref mr, ref mx, ref my, 0); Check("div", Real.Divide(rx, ry, 53));
-            Mpfr.Exp(ref mr, ref mx, 0); Check("exp", Real.Exp(rx, 53));
-            Mpfr.Sin(ref mr, ref mx, 0); Check("sin", Real.Sin(rx, 53));
-            Mpfr.Cos(ref mr, ref mx, 0); Check("cos", Real.Cos(rx, 53));
-            Mpfr.Atan(ref mr, ref mx, 0); Check("atan", Real.Atan(rx, 53));
+            Mpfr.Add(ref mr, ref mx, ref my, 0); Check("add", BigFloat.Add(rx, ry, 53));
+            Mpfr.Mul(ref mr, ref mx, ref my, 0); Check("mul", BigFloat.Multiply(rx, ry, 53));
+            Mpfr.Div(ref mr, ref mx, ref my, 0); Check("div", BigFloat.Divide(rx, ry, 53));
+            Mpfr.Exp(ref mr, ref mx, 0); Check("exp", BigFloat.Exp(rx, 53));
+            Mpfr.Sin(ref mr, ref mx, 0); Check("sin", BigFloat.Sin(rx, 53));
+            Mpfr.Cos(ref mr, ref mx, 0); Check("cos", BigFloat.Cos(rx, 53));
+            Mpfr.Atan(ref mr, ref mx, 0); Check("atan", BigFloat.Atan(rx, 53));
             if (x > 0)
             {
-                Mpfr.Sqrt(ref mr, ref mx, 0); Check("sqrt", Real.Sqrt(rx, 53));
-                Mpfr.Log(ref mr, ref mx, 0); Check("log", Real.Log(rx, 53));
-                Mpfr.Pow(ref mr, ref mx, ref my, 0); Check("pow", Real.Pow(rx, ry, 53));
+                Mpfr.Sqrt(ref mr, ref mx, 0); Check("sqrt", BigFloat.Sqrt(rx, 53));
+                Mpfr.Log(ref mr, ref mx, 0); Check("log", BigFloat.Log(rx, 53));
+                Mpfr.Pow(ref mr, ref mx, ref my, 0); Check("pow", BigFloat.Pow(rx, ry, 53));
             }
             Mpfr.Clear(ref mx); Mpfr.Clear(ref my); Mpfr.Clear(ref mr);
         }
@@ -129,7 +129,7 @@ public static class Program
             Mpfr.Init2(ref mr, P);
             Mpfr.Init2(ref mo, P);
 
-            void CheckHi(string what, Real ours)
+            void CheckHi(string what, BigFloat ours)
             {
                 Mpfr.SetStr(ref mo, ours.ToString(), 10, 0);
                 double da = Mpfr.GetD(ref mo, 0), db = Mpfr.GetD(ref mr, 0);
@@ -143,12 +143,12 @@ public static class Program
                 checks++;
             }
 
-            Mpfr.Exp(ref mr, ref mx, 0); CheckHi("exp", Real.Exp(Real.FromDouble(x, P), P));
-            Mpfr.Sin(ref mr, ref mx, 0); CheckHi("sin", Real.Sin(Real.FromDouble(x, P), P));
-            Mpfr.Atan(ref mr, ref mx, 0); CheckHi("atan", Real.Atan(Real.FromDouble(x, P), P));
+            Mpfr.Exp(ref mr, ref mx, 0); CheckHi("exp", BigFloat.Exp(BigFloat.FromDouble(x, P), P));
+            Mpfr.Sin(ref mr, ref mx, 0); CheckHi("sin", BigFloat.Sin(BigFloat.FromDouble(x, P), P));
+            Mpfr.Atan(ref mr, ref mx, 0); CheckHi("atan", BigFloat.Atan(BigFloat.FromDouble(x, P), P));
             if (x > 0)
             {
-                Mpfr.Log(ref mr, ref mx, 0); CheckHi("log", Real.Log(Real.FromDouble(x, P), P));
+                Mpfr.Log(ref mr, ref mx, 0); CheckHi("log", BigFloat.Log(BigFloat.FromDouble(x, P), P));
             }
             Mpfr.Clear(ref mx); Mpfr.Clear(ref mr); Mpfr.Clear(ref mo);
         }
@@ -158,7 +158,7 @@ public static class Program
             Mpfr.ConstPi(ref mpi, 0);
             Mpfr.MpfrT mo = default;
             Mpfr.Init2(ref mo, P);
-            Mpfr.SetStr(ref mo, Real.Pi(P).ToString(), 10, 0);
+            Mpfr.SetStr(ref mo, BigFloat.Pi(P).ToString(), 10, 0);
             Mpfr.Sub(ref mo, ref mo, ref mpi, 0);
             if (Math.Abs(Mpfr.GetD(ref mo, 0)) > Math.Pow(2, -190))
             {
@@ -167,7 +167,7 @@ public static class Program
             Mpfr.Clear(ref mpi); Mpfr.Clear(ref mo);
             checks++;
         }
-        Console.WriteLine($"smoke-mpfr OK: {checks} checks, Real matches native MPFR");
+        Console.WriteLine($"smoke-mpfr OK: {checks} checks, BigFloat matches native MPFR");
     }
 
     /// <summary>Cross-checks Sdcb.Arithmetic against native GMP on random inputs.</summary>

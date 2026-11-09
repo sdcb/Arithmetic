@@ -44,7 +44,7 @@ AVX2 basecase: 32×16-bit `vpmuludq` products accumulate carry-free in 64-bit
 lanes. Most operations land at ~1.2–2.5× of GMP, and a few small or mid-size
 kernels reach ~3×.
 
-## Real vs native MPFR 4.2
+## BigFloat vs native MPFR 4.2
 
 All results are correctly rounded on both sides, verified bit-for-bit by the
 `exact` harness (mantissa + exponent + NaN/±inf/±0, all five rounding modes,
@@ -66,22 +66,22 @@ and `perf` mode as above):
 
 (— : `perf` only times the transcendental rows up to 4096 bits.)
 
-`Real` runs its rounding core, ring operations, fixed-point helpers and series
+`BigFloat` runs its rounding core, ring operations, fixed-point helpers and series
 accumulators directly on the internal limb kernels with pooled/stack scratch, so each
 operation allocates only its result. Above ~4096 bits the remaining gap is the
-integer kernels themselves (multiplication/division), not `Real` overhead.
+integer kernels themselves (multiplication/division), not `BigFloat` overhead.
 
 π via Chudnovsky binary splitting: 262144 bits in ~0.1 s and 1M decimal digits (3.3M bits) in ~0.8 s (first call in a fresh process,
-including JIT). The `r.pi` row printed by `perf` is not a like-for-like ratio: `Real.Pi` reuses its
+including JIT). The `r.pi` row printed by `perf` is not a like-for-like ratio: `BigFloat.Pi` reuses its
 internal constant cache while the MPFR side frees its cache on every call.
 
 ## Fixed-width floats
 
-BenchmarkDotNet ShortRun (mean, ns), same machine. `Real` and MPFR run at the type's
+BenchmarkDotNet ShortRun (mean, ns), same machine. `BigFloat` and MPFR run at the type's
 precision (113 / 106 / 212 bits). `Float128`, `DoubleDouble` and `QuadDouble` allocate nothing
-(including `Float128`'s fast-path transcendentals); `Real` allocates 40–56 B per basic operation.
+(including `Float128`'s fast-path transcendentals); `BigFloat` allocates 40–56 B per basic operation.
 
-| operation | `Float128` | `Real` 113 | MPFR 113 | `DoubleDouble` | `Real` 106 | MPFR 106 | `QuadDouble` | `Real` 212 | MPFR 212 |
+| operation | `Float128` | `BigFloat` 113 | MPFR 113 | `DoubleDouble` | `BigFloat` 106 | MPFR 106 | `QuadDouble` | `BigFloat` 212 | MPFR 212 |
 |---|---|---|---|---|---|---|---|---|---|
 | add | 4.8 | 47 | 18 | 1.8 | 45 | 13 | 17 | 47 | 17 |
 | sub (cancelling) | 5.7 | — | 13 | — | — | — | 29 | — | 19 |
@@ -98,7 +98,7 @@ precision (113 / 106 / 212 bits). `Float128`, `DoubleDouble` and `QuadDouble` al
 - `Float128` basic arithmetic is 2–4× faster than MPFR at 113 bits, every result correctly rounded.
   Its transcendentals use a triple-double fast path (exp 154, log 174, sin/cos ~200, atan 299,
   pow 369 ns) and are 6–12× faster than MPFR while still correctly rounded; hard cases
-  (≪ 0.1% of random inputs) fall back to `Real`.
+  (≪ 0.1% of random inputs) fall back to `BigFloat`.
 - `DoubleDouble` basic arithmetic is 3–16× faster than MPFR at 106 bits; exp/log/sin are 9–12× faster.
 - `QuadDouble` matches MPFR at 212 bits on add/mul, is 2–3× faster on div/sqrt and 1.4–3.5× faster
   on exp/log/sin; cancelling subtraction (exact merge) is 1.5× slower.

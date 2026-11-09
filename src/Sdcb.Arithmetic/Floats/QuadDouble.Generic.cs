@@ -282,7 +282,7 @@ public readonly partial struct QuadDouble :
     /// <summary>x rounded to <paramref name="digits"/> decimal places, ties to even.</summary>
     public static QuadDouble Round(QuadDouble x, int digits) => Round(x, digits, MidpointRounding.ToEven);
 
-    /// <summary>x rounded to <paramref name="digits"/> decimal places (exact decimal rounding via <see cref="Real"/>, then to QD).</summary>
+    /// <summary>x rounded to <paramref name="digits"/> decimal places (exact decimal rounding via <see cref="BigFloat"/>, then to QD).</summary>
     public static QuadDouble Round(QuadDouble x, int digits, MidpointRounding mode)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(digits);
@@ -294,16 +294,16 @@ public readonly partial struct QuadDouble :
         {
             return x;
         }
-        Real r = Real.Round(ToRealExact(x).WithPrecision(Math.Max(ToRealExact(x).Precision, 400)), digits, mode);
-        QuadDouble q = FromReal(r);
+        BigFloat r = BigFloat.Round(ToBigFloatExact(x).WithPrecision(Math.Max(ToBigFloatExact(x).Precision, 400)), digits, mode);
+        QuadDouble q = FromBigFloat(r);
         return q._x0 == 0 ? CopySign(Zero, x) : q;
     }
 
     // ---------------------------------------------------------------
-    // IFloatingPoint layout members (delegated to the exact Real value)
+    // IFloatingPoint layout members (delegated to the exact BigFloat value)
     // ---------------------------------------------------------------
 
-    private IFloatingPoint<Real> Layout => ToRealExact(this);
+    private IFloatingPoint<BigFloat> Layout => ToBigFloatExact(this);
 
     int IFloatingPoint<QuadDouble>.GetExponentByteCount() => Layout.GetExponentByteCount();
     int IFloatingPoint<QuadDouble>.GetExponentShortestBitLength() => Layout.GetExponentShortestBitLength();

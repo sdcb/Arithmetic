@@ -6,8 +6,8 @@ namespace Sdcb.Arithmetic.Tests;
 
 public class Float128Tests
 {
-    private static readonly RealRounding[] Modes =
-        [RealRounding.NearestEven, RealRounding.TowardZero, RealRounding.TowardPositive, RealRounding.TowardNegative, RealRounding.AwayFromZero];
+    private static readonly RoundingMode[] Modes =
+        [RoundingMode.NearestEven, RoundingMode.TowardZero, RoundingMode.TowardPositive, RoundingMode.TowardNegative, RoundingMode.AwayFromZero];
 
     private static UInt128 Hex(ulong hi, ulong lo) => new(hi, lo);
     private static readonly UInt128 Sign = UInt128.One << 127;
@@ -16,20 +16,20 @@ public class Float128Tests
     private static readonly UInt128 MaxFinite = Hex(0x7FFE_FFFF_FFFF_FFFF, ulong.MaxValue);
 
     private static Float128 F(UInt128 bits) => Float128.FromBits(bits);
-    private static Real R(Float128 x) => x.ToReal();
+    private static BigFloat R(Float128 x) => x.ToBigFloat();
     private static string H(UInt128 b) => $"0x{(ulong)(b >> 64):X16}_{(ulong)b:X16}";
 
     // ---------------------------------------------------------------
-    // Oracle: Real evaluated toward zero and away from zero at 160 bits. Equal results are exact;
+    // Oracle: BigFloat evaluated toward zero and away from zero at 160 bits. Equal results are exact;
     // otherwise the toward-zero result with its last bit forced to 1 is the round-to-odd value, whose
     // rounding to binary128 (<= 113 bits, subnormals included) is the correctly rounded result.
     // ---------------------------------------------------------------
 
     private const int OracleBits = 160;
 
-    private static UInt128 Oracle(Func<int, RealRounding, Real> f, RealRounding mode)
+    private static UInt128 Oracle(Func<int, RoundingMode, BigFloat> f, RoundingMode mode)
     {
-        Real z = f(OracleBits, RealRounding.TowardZero);
+        BigFloat z = f(OracleBits, RoundingMode.TowardZero);
         if (z.IsZero)
         {
             return f(OracleBits, mode).ToBinary128Bits(mode); // exact zero: its sign depends on the mode
@@ -38,13 +38,13 @@ public class Float128Tests
         {
             return z.ToBinary128Bits(mode);
         }
-        Real a = f(OracleBits, RealRounding.AwayFromZero);
+        BigFloat a = f(OracleBits, RoundingMode.AwayFromZero);
         if (a.CompareTo(z) == 0)
         {
             return z.ToBinary128Bits(mode);
         }
         BigInt m = z.Mantissa | BigInt.One;
-        Real odd = Real.FromBigInt(z.SignBit ? -m : m, z.Exponent, OracleBits);
+        BigFloat odd = BigFloat.FromBigInt(z.SignBit ? -m : m, z.Exponent, OracleBits);
         return odd.ToBinary128Bits(mode);
     }
 
@@ -145,19 +145,19 @@ public class Float128Tests
     ];
 
     // ---------------------------------------------------------------
-    // Bit-exact basic operations against the Real oracle
+    // Bit-exact basic operations against the BigFloat oracle
     // ---------------------------------------------------------------
 
-    private static void CheckBinary(int seed, int count, Func<Float128, Float128, RealRounding, Float128> op,
-        Func<Real, Real, int, RealRounding, Real> oracle, string name)
+    private static void CheckBinary(int seed, int count, Func<Float128, Float128, RoundingMode, Float128> op,
+        Func<BigFloat, BigFloat, int, RoundingMode, BigFloat> oracle, string name)
     {
         Random rng = new(seed);
         for (int i = 0; i < count; i++)
         {
             UInt128 a = SpecialOrRandom(rng, Specials);
             UInt128 b = rng.Next(3) == 0 ? SpecialOrRandom(rng, Specials) : RelatedBits(rng, a);
-            Real ra = R(F(a)), rb = R(F(b));
-            foreach (RealRounding mode in Modes)
+            BigFloat ra = R(F(a)), rb = R(F(b));
+            foreach (RoundingMode mode in Modes)
             {
                 UInt128 expected = Oracle((p, m) => oracle(ra, rb, p, m), mode);
                 AssertBits(expected, op(F(a), F(b), mode), $"{name}({H(a)}, {H(b)}) {mode}");
@@ -166,16 +166,16 @@ public class Float128Tests
     }
 
     [Fact]
-    public void AddMatchesOracle() => CheckBinary(1, 6000, Float128.Add, Real.Add, "Add");
+    public void AddMatchesOracle() => CheckBinary(1, 6000, Float128.Add, BigFloat.Add, "Add");
 
     [Fact]
-    public void SubtractMatchesOracle() => CheckBinary(2, 6000, Float128.Subtract, Real.Subtract, "Sub");
+    public void SubtractMatchesOracle() => CheckBinary(2, 6000, Float128.Subtract, BigFloat.Subtract, "Sub");
 
     [Fact]
-    public void MultiplyMatchesOracle() => CheckBinary(3, 6000, Float128.Multiply, Real.Multiply, "Mul");
+    public void MultiplyMatchesOracle() => CheckBinary(3, 6000, Float128.Multiply, BigFloat.Multiply, "Mul");
 
     [Fact]
-    public void DivideMatchesOracle() => CheckBinary(4, 6000, Float128.Divide, Real.Divide, "Div");
+    public void DivideMatchesOracle() => CheckBinary(4, 6000, Float128.Divide, BigFloat.Divide, "Div");
 
     [Fact]
     public void SqrtMatchesOracle()
@@ -188,10 +188,10 @@ public class Float128Tests
             {
                 a &= ~Sign;
             }
-            Real ra = R(F(a));
-            foreach (RealRounding mode in Modes)
+            BigFloat ra = R(F(a));
+            foreach (RoundingMode mode in Modes)
             {
-                UInt128 expected = Oracle((p, m) => Real.Sqrt(ra, p, m), mode);
+                UInt128 expected = Oracle((p, m) => BigFloat.Sqrt(ra, p, m), mode);
                 AssertBits(expected, Float128.Sqrt(F(a), mode), $"Sqrt({H(a)}) {mode}");
             }
         }
@@ -218,17 +218,17 @@ public class Float128Tests
             if (kind == 0)
             {
                 // c close to -(a*b): massive cancellation.
-                Float128 p = Float128.Multiply(F(a), F(b), RealRounding.TowardZero);
+                Float128 p = Float128.Multiply(F(a), F(b), RoundingMode.TowardZero);
                 c = (p.ToBits() ^ Sign) + (UInt128)(ulong)rng.Next(-3, 4);
             }
             else
             {
                 c = kind == 1 ? RelatedBits(rng, a) : SpecialOrRandom(rng, Specials);
             }
-            Real ra = R(F(a)), rb = R(F(b)), rc = R(F(c));
-            foreach (RealRounding mode in Modes)
+            BigFloat ra = R(F(a)), rb = R(F(b)), rc = R(F(c));
+            foreach (RoundingMode mode in Modes)
             {
-                UInt128 expected = Oracle((p, m) => Real.FusedMultiplyAdd(ra, rb, rc, p, m), mode);
+                UInt128 expected = Oracle((p, m) => BigFloat.FusedMultiplyAdd(ra, rb, rc, p, m), mode);
                 AssertBits(expected, Float128.FusedMultiplyAdd(F(a), F(b), F(c), mode), $"Fma({H(a)}, {H(b)}, {H(c)}) {mode}");
             }
         }
@@ -244,21 +244,21 @@ public class Float128Tests
 
     private static void CheckArith(UInt128 a, UInt128 b, bool add, bool mul, bool div)
     {
-        Real ra = R(F(a)), rb = R(F(b));
-        foreach (RealRounding mode in Modes)
+        BigFloat ra = R(F(a)), rb = R(F(b));
+        foreach (RoundingMode mode in Modes)
         {
             if (add)
             {
-                AssertBits(Oracle((p, m) => Real.Add(ra, rb, p, m), mode), Float128.Add(F(a), F(b), mode), $"Add({H(a)}, {H(b)}) {mode}");
-                AssertBits(Oracle((p, m) => Real.Subtract(ra, rb, p, m), mode), Float128.Subtract(F(a), F(b), mode), $"Sub({H(a)}, {H(b)}) {mode}");
+                AssertBits(Oracle((p, m) => BigFloat.Add(ra, rb, p, m), mode), Float128.Add(F(a), F(b), mode), $"Add({H(a)}, {H(b)}) {mode}");
+                AssertBits(Oracle((p, m) => BigFloat.Subtract(ra, rb, p, m), mode), Float128.Subtract(F(a), F(b), mode), $"Sub({H(a)}, {H(b)}) {mode}");
             }
             if (mul)
             {
-                AssertBits(Oracle((p, m) => Real.Multiply(ra, rb, p, m), mode), Float128.Multiply(F(a), F(b), mode), $"Mul({H(a)}, {H(b)}) {mode}");
+                AssertBits(Oracle((p, m) => BigFloat.Multiply(ra, rb, p, m), mode), Float128.Multiply(F(a), F(b), mode), $"Mul({H(a)}, {H(b)}) {mode}");
             }
             if (div)
             {
-                AssertBits(Oracle((p, m) => Real.Divide(ra, rb, p, m), mode), Float128.Divide(F(a), F(b), mode), $"Div({H(a)}, {H(b)}) {mode}");
+                AssertBits(Oracle((p, m) => BigFloat.Divide(ra, rb, p, m), mode), Float128.Divide(F(a), F(b), mode), $"Div({H(a)}, {H(b)}) {mode}");
             }
         }
     }
@@ -366,10 +366,10 @@ public class Float128Tests
                 UInt128 a = Make(rng.Next(2) == 0, expA, RandomFrac(rng));
                 UInt128 b = Make(rng.Next(2) == 0, expB, RandomFrac(rng));
                 UInt128 c = Make(rng.Next(2) == 0, expC, RandomFrac(rng));
-                Real ra = R(F(a)), rb = R(F(b)), rc = R(F(c));
-                foreach (RealRounding mode in Modes)
+                BigFloat ra = R(F(a)), rb = R(F(b)), rc = R(F(c));
+                foreach (RoundingMode mode in Modes)
                 {
-                    UInt128 expected = Oracle((p, m) => Real.FusedMultiplyAdd(ra, rb, rc, p, m), mode);
+                    UInt128 expected = Oracle((p, m) => BigFloat.FusedMultiplyAdd(ra, rb, rc, p, m), mode);
                     AssertBits(expected, Float128.FusedMultiplyAdd(F(a), F(b), F(c), mode), $"Fma({H(a)}, {H(b)}, {H(c)}) {mode}");
                 }
             }
@@ -386,10 +386,10 @@ public class Float128Tests
             for (int i = 0; i < 60; i++)
             {
                 UInt128 a = Make(false, e, i == 0 ? UInt128.Zero : i == 1 ? (UInt128.One << 112) - 1 : RandomFrac(rng));
-                Real ra = R(F(a));
-                foreach (RealRounding mode in Modes)
+                BigFloat ra = R(F(a));
+                foreach (RoundingMode mode in Modes)
                 {
-                    AssertBits(Oracle((p, m) => Real.Sqrt(ra, p, m), mode), Float128.Sqrt(F(a), mode), $"Sqrt({H(a)}) {mode}");
+                    AssertBits(Oracle((p, m) => BigFloat.Sqrt(ra, p, m), mode), Float128.Sqrt(F(a), mode), $"Sqrt({H(a)}) {mode}");
                 }
             }
         }
@@ -402,17 +402,17 @@ public class Float128Tests
         {
             foreach (UInt128 b in Specials)
             {
-                Real ra = R(F(a)), rb = R(F(b));
-                foreach (RealRounding mode in Modes)
+                BigFloat ra = R(F(a)), rb = R(F(b));
+                foreach (RoundingMode mode in Modes)
                 {
-                    AssertBits(Oracle((p, m) => Real.Add(ra, rb, p, m), mode), Float128.Add(F(a), F(b), mode), $"Add {H(a)} {H(b)} {mode}");
-                    AssertBits(Oracle((p, m) => Real.Subtract(ra, rb, p, m), mode), Float128.Subtract(F(a), F(b), mode), $"Sub {H(a)} {H(b)} {mode}");
-                    AssertBits(Oracle((p, m) => Real.Multiply(ra, rb, p, m), mode), Float128.Multiply(F(a), F(b), mode), $"Mul {H(a)} {H(b)} {mode}");
-                    AssertBits(Oracle((p, m) => Real.Divide(ra, rb, p, m), mode), Float128.Divide(F(a), F(b), mode), $"Div {H(a)} {H(b)} {mode}");
+                    AssertBits(Oracle((p, m) => BigFloat.Add(ra, rb, p, m), mode), Float128.Add(F(a), F(b), mode), $"Add {H(a)} {H(b)} {mode}");
+                    AssertBits(Oracle((p, m) => BigFloat.Subtract(ra, rb, p, m), mode), Float128.Subtract(F(a), F(b), mode), $"Sub {H(a)} {H(b)} {mode}");
+                    AssertBits(Oracle((p, m) => BigFloat.Multiply(ra, rb, p, m), mode), Float128.Multiply(F(a), F(b), mode), $"Mul {H(a)} {H(b)} {mode}");
+                    AssertBits(Oracle((p, m) => BigFloat.Divide(ra, rb, p, m), mode), Float128.Divide(F(a), F(b), mode), $"Div {H(a)} {H(b)} {mode}");
                     foreach (UInt128 c in Specials)
                     {
-                        Real rc = R(F(c));
-                        AssertBits(Oracle((p, m) => Real.FusedMultiplyAdd(ra, rb, rc, p, m), mode),
+                        BigFloat rc = R(F(c));
+                        AssertBits(Oracle((p, m) => BigFloat.FusedMultiplyAdd(ra, rb, rc, p, m), mode),
                             Float128.FusedMultiplyAdd(F(a), F(b), F(c), mode), $"Fma {H(a)} {H(b)} {H(c)} {mode}");
                     }
                 }
@@ -428,8 +428,8 @@ public class Float128Tests
         Assert.Equal(Sign, (nz + nz).ToBits());
         Assert.Equal(UInt128.Zero, (pz + nz).ToBits());
         Assert.Equal(UInt128.Zero, (x - x).ToBits());
-        Assert.Equal(Sign, Float128.Subtract(x, x, RealRounding.TowardNegative).ToBits());
-        Assert.Equal(Sign, Float128.Add(x, -x, RealRounding.TowardNegative).ToBits());
+        Assert.Equal(Sign, Float128.Subtract(x, x, RoundingMode.TowardNegative).ToBits());
+        Assert.Equal(Sign, Float128.Add(x, -x, RoundingMode.TowardNegative).ToBits());
         Assert.Equal(Sign, (nz * x).ToBits());
         Assert.Equal(Sign, Float128.Sqrt(nz).ToBits());
         Assert.True(Float128.IsNaN(inf - inf));
@@ -449,13 +449,13 @@ public class Float128Tests
         foreach (bool neg in new[] { false, true })
         {
             Float128 m = neg ? -max : max;
-            foreach (RealRounding mode in Modes)
+            foreach (RoundingMode mode in Modes)
             {
                 bool toInf = mode switch
                 {
-                    RealRounding.TowardZero => false,
-                    RealRounding.TowardPositive => !neg,
-                    RealRounding.TowardNegative => neg,
+                    RoundingMode.TowardZero => false,
+                    RoundingMode.TowardPositive => !neg,
+                    RoundingMode.TowardNegative => neg,
                     _ => true,
                 };
                 UInt128 expected = (toInf ? PosInf : MaxFinite) | (neg ? Sign : UInt128.Zero);
@@ -466,11 +466,11 @@ public class Float128Tests
         Float128 eps = Float128.Epsilon;
         Assert.Equal(UInt128.Zero, (eps * (Float128)0.5).ToBits()); // tie to even (0)
         Assert.Equal((UInt128)2, (eps * (Float128)1.5).ToBits()); // tie to even (2)
-        Assert.Equal(UInt128.One, Float128.Multiply(eps, (Float128)0.25, RealRounding.TowardPositive).ToBits());
-        Assert.Equal(Sign, Float128.Multiply(-eps, (Float128)0.25, RealRounding.TowardPositive).ToBits());
-        Assert.Equal(Sign | 1, Float128.Multiply(-eps, (Float128)0.25, RealRounding.AwayFromZero).ToBits());
-        Assert.Equal(UInt128.Zero, Float128.Multiply(eps, eps, RealRounding.TowardZero).ToBits());
-        Assert.Equal(UInt128.One, Float128.Multiply(eps, eps, RealRounding.TowardPositive).ToBits());
+        Assert.Equal(UInt128.One, Float128.Multiply(eps, (Float128)0.25, RoundingMode.TowardPositive).ToBits());
+        Assert.Equal(Sign, Float128.Multiply(-eps, (Float128)0.25, RoundingMode.TowardPositive).ToBits());
+        Assert.Equal(Sign | 1, Float128.Multiply(-eps, (Float128)0.25, RoundingMode.AwayFromZero).ToBits());
+        Assert.Equal(UInt128.Zero, Float128.Multiply(eps, eps, RoundingMode.TowardZero).ToBits());
+        Assert.Equal(UInt128.One, Float128.Multiply(eps, eps, RoundingMode.TowardPositive).ToBits());
         // min normal / 2 is exactly the largest-ish subnormal power of two
         Assert.Equal(Hex(0x0000_8000_0000_0000, 0), (Float128.MinNormal / (Float128)2).ToBits());
     }
@@ -478,8 +478,8 @@ public class Float128Tests
     [Fact]
     public void SqrtSpotCheck()
     {
-        Assert.Equal(Real.Sqrt(2, 113).ToBinary128Bits(), Float128.Sqrt(2).ToBits());
-        Assert.Equal(Real.Sqrt(3, 113).ToBinary128Bits(), Float128.Sqrt(3).ToBits());
+        Assert.Equal(BigFloat.Sqrt(2, 113).ToBinary128Bits(), Float128.Sqrt(2).ToBits());
+        Assert.Equal(BigFloat.Sqrt(3, 113).ToBinary128Bits(), Float128.Sqrt(3).ToBits());
         Assert.Equal((Float128)3, Float128.Sqrt(9));
     }
 
@@ -501,14 +501,14 @@ public class Float128Tests
                 b = (b & ~(UInt128.MaxValue << 112 & ~Sign)) | ((UInt128)(uint)Math.Max(1, (int)((a >> 112) & 0x7FFF) - rng.Next(0, 400)) << 112);
             }
             Float128 fa = F(a), fb = F(b);
-            Real ra = R(fa), rb = R(fb);
+            BigFloat ra = R(fa), rb = R(fb);
             int ea = Float128.ILogB(fa), eb = Float128.ILogB(fb);
             if (Float128.IsFinite(fa) && Float128.IsFinite(fb) && !Float128.IsZero(fa) && !Float128.IsZero(fb) && ea - eb > 2000)
             {
-                continue; // keep Real's exact quotient small
+                continue; // keep BigFloat's exact quotient small
             }
-            UInt128 fmod = Oracle((p, m) => Real.TruncatedRemainder(ra, rb, p, m), RealRounding.NearestEven);
-            UInt128 ieee = Oracle((p, m) => Real.Ieee754Remainder(ra, rb, p, m), RealRounding.NearestEven);
+            UInt128 fmod = Oracle((p, m) => BigFloat.TruncatedRemainder(ra, rb, p, m), RoundingMode.NearestEven);
+            UInt128 ieee = Oracle((p, m) => BigFloat.Ieee754Remainder(ra, rb, p, m), RoundingMode.NearestEven);
             AssertBits(fmod, fa % fb, $"fmod({H(a)}, {H(b)})");
             AssertBits(ieee, Float128.Ieee754Remainder(fa, fb), $"remainder({H(a)}, {H(b)})");
         }
@@ -533,12 +533,12 @@ public class Float128Tests
                 a = (a & ~(UInt128.MaxValue << 112 & ~Sign)) | ((UInt128)(uint)(0x3FFF + rng.Next(-3, 116)) << 112);
             }
             Float128 x = F(a);
-            Real r = R(x);
+            BigFloat r = R(x);
             CheckInt(r.Floor(), Float128.Floor(x), x, "Floor");
             CheckInt(r.Ceiling(), Float128.Ceiling(x), x, "Ceiling");
             CheckInt(r.Truncate(), Float128.Truncate(x), x, "Truncate");
-            CheckInt(Real.Round(r), Float128.Round(x), x, "Round");
-            CheckInt(Real.Round(r, MidpointRounding.AwayFromZero), Float128.Round(x, MidpointRounding.AwayFromZero), x, "RoundAway");
+            CheckInt(BigFloat.Round(r), Float128.Round(x), x, "Round");
+            CheckInt(BigFloat.Round(r, MidpointRounding.AwayFromZero), Float128.Round(x, MidpointRounding.AwayFromZero), x, "RoundAway");
         }
         Assert.Equal((Float128)2, Float128.Round((Float128)2.5));
         Assert.Equal((Float128)3, Float128.Round((Float128)2.5, MidpointRounding.AwayFromZero));
@@ -549,7 +549,7 @@ public class Float128Tests
         Assert.Equal(Float128.Parse("1.24"), Float128.Round(Float128.Parse("1.235"), 2, MidpointRounding.AwayFromZero));
     }
 
-    private static void CheckInt(Real expected, Float128 actual, Float128 x, string name)
+    private static void CheckInt(BigFloat expected, Float128 actual, Float128 x, string name)
     {
         UInt128 e = expected.ToBinary128Bits();
         if (expected.IsZero)
@@ -582,9 +582,9 @@ public class Float128Tests
     [Fact]
     public void Constants()
     {
-        Assert.Equal(Real.Pi(300).ToBinary128Bits(), Float128.Pi.ToBits());
-        Assert.Equal(Real.E(300).ToBinary128Bits(), Float128.E.ToBits());
-        Assert.Equal(Real.Pi(300).ShiftLeft(1).ToBinary128Bits(), Float128.Tau.ToBits());
+        Assert.Equal(BigFloat.Pi(300).ToBinary128Bits(), Float128.Pi.ToBits());
+        Assert.Equal(BigFloat.E(300).ToBinary128Bits(), Float128.E.ToBits());
+        Assert.Equal(BigFloat.Pi(300).ShiftLeft(1).ToBinary128Bits(), Float128.Tau.ToBits());
         Assert.Equal(Hex(0x3FFD_5555_5555_5555, 0x5555_5555_5555_5555), (Float128.One / 3).ToBits());
         Assert.Equal(MaxFinite, Float128.MaxValue.ToBits());
         Assert.Equal(MaxFinite | Sign, Float128.MinValue.ToBits());
@@ -618,7 +618,7 @@ public class Float128Tests
                 Assert.True(Float128.IsNaN(f));
                 continue;
             }
-            Assert.Equal(Real.FromDouble(d, 53).ToBinary128Bits(), f.ToBits());
+            Assert.Equal(BigFloat.FromDouble(d, 53).ToBinary128Bits(), f.ToBits());
             Assert.Equal(BitConverter.DoubleToUInt64Bits(d), BitConverter.DoubleToUInt64Bits((double)f));
         }
         for (int i = 0; i < 20000; i++)
@@ -632,8 +632,8 @@ public class Float128Tests
                 b = (b & ~(UInt128.MaxValue << 112 & ~Sign)) | ((UInt128)(uint)e << 112);
             }
             Float128 f = F(b);
-            Real r = R(f);
-            foreach (RealRounding mode in Modes)
+            BigFloat r = R(f);
+            foreach (RoundingMode mode in Modes)
             {
                 double ed = r.ToDouble(mode), ad = f.ToDouble(mode);
                 Assert.True(BitConverter.DoubleToUInt64Bits(ed) == BitConverter.DoubleToUInt64Bits(ad) || (double.IsNaN(ed) && double.IsNaN(ad)),
@@ -662,15 +662,15 @@ public class Float128Tests
                 v = -v;
             }
             UInt128 u = (UInt128)rng.NextInt64() << rng.Next(65) | (ulong)rng.NextInt64();
-            foreach (RealRounding mode in Modes)
+            foreach (RoundingMode mode in Modes)
             {
-                Assert.Equal(Real.FromBigInt(new BigInt(v)).ToBinary128Bits(mode), Float128.FromInt128(v, mode).ToBits());
-                Assert.Equal(Real.FromBigInt(new BigInt(u)).ToBinary128Bits(mode), Float128.FromUInt128(u, mode).ToBits());
+                Assert.Equal(BigFloat.FromBigInt(new BigInt(v)).ToBinary128Bits(mode), Float128.FromInt128(v, mode).ToBits());
+                Assert.Equal(BigFloat.FromBigInt(new BigInt(u)).ToBinary128Bits(mode), Float128.FromUInt128(u, mode).ToBits());
             }
             long l = rng.NextInt64() >> rng.Next(64);
             Float128 fl = l;
             Assert.Equal(l, (long)fl);
-            Assert.Equal(Real.FromBigInt(new BigInt(l)).ToBinary128Bits(), fl.ToBits());
+            Assert.Equal(BigFloat.FromBigInt(new BigInt(l)).ToBinary128Bits(), fl.ToBits());
             ulong ul = (ulong)rng.NextInt64() * 2 + 1;
             Assert.Equal(ul, (ulong)(Float128)ul);
             // truncation of arbitrary finite values
@@ -719,16 +719,16 @@ public class Float128Tests
         Assert.Equal(new BigRational(3, 4), (BigRational)(Float128)0.75);
         BigInt big = BigInt.One << 20000;
         Assert.Equal(Float128.PositiveInfinity, (Float128)big);
-        Assert.Equal(Float128.MaxValue, Float128.FromBigInt(big, RealRounding.TowardZero));
+        Assert.Equal(Float128.MaxValue, Float128.FromBigInt(big, RoundingMode.TowardZero));
         BigInt n = (BigInt.One << 200) + 1;
-        Assert.Equal(Real.FromBigInt(n).ToBinary128Bits(RealRounding.TowardPositive), Float128.FromBigInt(n, RealRounding.TowardPositive).ToBits());
-        Real r = Real.Sqrt(2, 300);
-        foreach (RealRounding mode in Modes)
+        Assert.Equal(BigFloat.FromBigInt(n).ToBinary128Bits(RoundingMode.TowardPositive), Float128.FromBigInt(n, RoundingMode.TowardPositive).ToBits());
+        BigFloat r = BigFloat.Sqrt(2, 300);
+        foreach (RoundingMode mode in Modes)
         {
-            Assert.Equal(r.ToBinary128Bits(mode), Float128.FromReal(r, mode).ToBits());
+            Assert.Equal(r.ToBinary128Bits(mode), Float128.FromBigFloat(r, mode).ToBits());
         }
         Float128 x = Float128.Pi;
-        Real back = x;
+        BigFloat back = x;
         Assert.Equal(113, back.Precision);
         Assert.Equal(x, (Float128)back);
         Assert.Equal(1.0, double.CreateChecked(Float128.One));
@@ -768,7 +768,7 @@ public class Float128Tests
             {
                 continue;
             }
-            int c = Float128.IsZero(a) && Float128.IsZero(b) ? 0 : R(a).CompareTo(R(b)); // Real orders -0 below +0
+            int c = Float128.IsZero(a) && Float128.IsZero(b) ? 0 : R(a).CompareTo(R(b)); // BigFloat orders -0 below +0
             Assert.True(c < 0 == a < b && (c == 0) == (a == b), $"{H(a.ToBits())} {H(b.ToBits())} c={c}");
             Assert.Equal(c > 0, a > b);
             Assert.Equal(c <= 0, a <= b);
@@ -876,8 +876,8 @@ public class Float128Tests
             {
                 continue;
             }
-            Real r = R(x);
-            foreach (RealRounding mode in new[] { RealRounding.TowardZero, RealRounding.AwayFromZero })
+            BigFloat r = R(x);
+            foreach (RoundingMode mode in new[] { RoundingMode.TowardZero, RoundingMode.AwayFromZero })
             {
                 string shorter = r.ToString(n - 1, mode);
                 Assert.True(Float128.Parse(shorter, CultureInfo.InvariantCulture).ToBits() != b, $"{H(b)}: {s} but {shorter} also round-trips");
@@ -905,7 +905,7 @@ public class Float128Tests
                 {
                     continue;
                 }
-                Real mid = Real.Add(R(v), R(Float128.BitIncrement(v)), 300).ShiftRight(1);
+                BigFloat mid = BigFloat.Add(R(v), R(Float128.BitIncrement(v)), 300).ShiftRight(1);
                 string ms = ExactDecimal(mid.ToRational());
                 CheckParse(ms);
                 continue;
@@ -922,9 +922,9 @@ public class Float128Tests
 
         static void CheckParse(string s)
         {
-            foreach (RealRounding mode in Modes)
+            foreach (RoundingMode mode in Modes)
             {
-                UInt128 expected = Oracle((p, m) => Real.Parse(s, p, m), mode);
+                UInt128 expected = Oracle((p, m) => BigFloat.Parse(s, p, m), mode);
                 AssertBits(expected, Float128.Parse(s, mode), $"Parse({s}) {mode}");
             }
         }
@@ -947,9 +947,9 @@ public class Float128Tests
         Assert.Equal(Float128.NegativeInfinity, Float128.Parse("-Infinity", CultureInfo.InvariantCulture));
         Assert.Equal(Float128.NegativeInfinity, Float128.Parse("-inf", CultureInfo.InvariantCulture));
         Assert.Equal(Float128.PositiveInfinity, Float128.Parse("1e5000", CultureInfo.InvariantCulture));
-        Assert.Equal(Float128.MaxValue, Float128.Parse("1e5000", RealRounding.TowardZero));
+        Assert.Equal(Float128.MaxValue, Float128.Parse("1e5000", RoundingMode.TowardZero));
         Assert.Equal(UInt128.Zero, Float128.Parse("1e-5000", CultureInfo.InvariantCulture).ToBits());
-        Assert.Equal(UInt128.One, Float128.Parse("1e-5000", RealRounding.TowardPositive).ToBits());
+        Assert.Equal(UInt128.One, Float128.Parse("1e-5000", RoundingMode.TowardPositive).ToBits());
         Assert.Equal(Sign, Float128.Parse("-0.000", CultureInfo.InvariantCulture).ToBits());
         Assert.Equal((Float128)1234.5, Float128.Parse("1,234.5", CultureInfo.InvariantCulture));
         Assert.Equal((Float128)1234.5, Float128.Parse("1.234,5", CultureInfo.GetCultureInfo("de-DE")));
@@ -1000,7 +1000,7 @@ public class Float128Tests
     }
 
     // ---------------------------------------------------------------
-    // Elementary functions (correct rounding through Real)
+    // Elementary functions (correct rounding through BigFloat)
     // ---------------------------------------------------------------
 
     private static Float128 RandomArg(Random rng, double lo, double hi)
@@ -1014,15 +1014,15 @@ public class Float128Tests
         return (Float128)lo + u * (Float128)(hi - lo);
     }
 
-    private static void CheckUnary(int seed, int count, double lo, double hi, Func<Float128, RealRounding, Float128> f,
-        Func<Real, int, RealRounding, Real> g, string name)
+    private static void CheckUnary(int seed, int count, double lo, double hi, Func<Float128, RoundingMode, Float128> f,
+        Func<BigFloat, int, RoundingMode, BigFloat> g, string name)
     {
         Random rng = new(seed);
         for (int i = 0; i < count; i++)
         {
             Float128 x = RandomArg(rng, lo, hi);
-            Real rx = R(x);
-            RealRounding mode = i % 2 == 0 ? RealRounding.NearestEven : Modes[rng.Next(Modes.Length)];
+            BigFloat rx = R(x);
+            RoundingMode mode = i % 2 == 0 ? RoundingMode.NearestEven : Modes[rng.Next(Modes.Length)];
             AssertBits(Oracle((p, m) => g(rx, p, m), mode), f(x, mode), $"{name}({H(x.ToBits())}) {mode}");
         }
     }
@@ -1030,30 +1030,30 @@ public class Float128Tests
     [Fact]
     public void ExpLogFamily()
     {
-        CheckUnary(20, 150, -60, 60, Float128.Exp, Real.Exp, "Exp");
-        CheckUnary(21, 60, -11450, 11360, Float128.Exp, Real.Exp, "ExpWide");
-        CheckUnary(22, 120, -100, 100, Float128.Exp2, Real.Exp2, "Exp2");
-        CheckUnary(23, 120, -40, 40, Float128.Exp10, Real.Exp10, "Exp10");
-        CheckUnary(24, 120, -50, 50, Float128.ExpM1, Real.ExpM1, "ExpM1");
-        CheckUnary(25, 150, 0, 1e6, Float128.Log, Real.Log, "Log");
-        CheckUnary(26, 120, 0, 1e6, Float128.Log2, Real.Log2, "Log2");
-        CheckUnary(27, 120, 0, 1e6, Float128.Log10, Real.Log10, "Log10");
-        CheckUnary(28, 120, -0.9, 100, Float128.LogP1, Real.LogP1, "LogP1");
-        CheckUnary(29, 100, 0, 1e30, Float128.Cbrt, Real.Cbrt, "Cbrt");
-        CheckUnary(30, 100, -20, 20, Float128.Sinh, Real.Sinh, "Sinh");
-        CheckUnary(31, 100, -20, 20, Float128.Cosh, Real.Cosh, "Cosh");
-        CheckUnary(32, 100, -20, 20, Float128.Tanh, Real.Tanh, "Tanh");
-        CheckUnary(33, 100, -1e6, 1e6, Float128.Asinh, Real.Asinh, "Asinh");
-        CheckUnary(34, 100, 1, 1e6, Float128.Acosh, Real.Acosh, "Acosh");
-        CheckUnary(35, 100, -1, 1, Float128.Atanh, Real.Atanh, "Atanh");
+        CheckUnary(20, 150, -60, 60, Float128.Exp, BigFloat.Exp, "Exp");
+        CheckUnary(21, 60, -11450, 11360, Float128.Exp, BigFloat.Exp, "ExpWide");
+        CheckUnary(22, 120, -100, 100, Float128.Exp2, BigFloat.Exp2, "Exp2");
+        CheckUnary(23, 120, -40, 40, Float128.Exp10, BigFloat.Exp10, "Exp10");
+        CheckUnary(24, 120, -50, 50, Float128.ExpM1, BigFloat.ExpM1, "ExpM1");
+        CheckUnary(25, 150, 0, 1e6, Float128.Log, BigFloat.Log, "Log");
+        CheckUnary(26, 120, 0, 1e6, Float128.Log2, BigFloat.Log2, "Log2");
+        CheckUnary(27, 120, 0, 1e6, Float128.Log10, BigFloat.Log10, "Log10");
+        CheckUnary(28, 120, -0.9, 100, Float128.LogP1, BigFloat.LogP1, "LogP1");
+        CheckUnary(29, 100, 0, 1e30, Float128.Cbrt, BigFloat.Cbrt, "Cbrt");
+        CheckUnary(30, 100, -20, 20, Float128.Sinh, BigFloat.Sinh, "Sinh");
+        CheckUnary(31, 100, -20, 20, Float128.Cosh, BigFloat.Cosh, "Cosh");
+        CheckUnary(32, 100, -20, 20, Float128.Tanh, BigFloat.Tanh, "Tanh");
+        CheckUnary(33, 100, -1e6, 1e6, Float128.Asinh, BigFloat.Asinh, "Asinh");
+        CheckUnary(34, 100, 1, 1e6, Float128.Acosh, BigFloat.Acosh, "Acosh");
+        CheckUnary(35, 100, -1, 1, Float128.Atanh, BigFloat.Atanh, "Atanh");
         // Subnormal / overflow edges
         Assert.Equal(PosInf, Float128.Exp(11400).ToBits());
-        Assert.Equal(MaxFinite, Float128.Exp(11400, RealRounding.TowardZero).ToBits());
+        Assert.Equal(MaxFinite, Float128.Exp(11400, RoundingMode.TowardZero).ToBits());
         Assert.Equal(UInt128.Zero, Float128.Exp(-12000).ToBits());
-        Assert.Equal(UInt128.One, Float128.Exp(-12000, RealRounding.TowardPositive).ToBits());
+        Assert.Equal(UInt128.One, Float128.Exp(-12000, RoundingMode.TowardPositive).ToBits());
         Assert.Equal(UInt128.One, Float128.Exp2(-16494).ToBits());
         Assert.Equal(Float128.NegativeOne, Float128.ExpM1(-1000));
-        Assert.Equal(Float128.BitIncrement(Float128.NegativeOne), Float128.ExpM1(-1000, RealRounding.TowardZero));
+        Assert.Equal(Float128.BitIncrement(Float128.NegativeOne), Float128.ExpM1(-1000, RoundingMode.TowardZero));
         Assert.Equal(Float128.One, Float128.Exp(0));
         Assert.Equal(Float128.Zero, Float128.Log(1));
         Assert.Equal(Float128.NegativeInfinity, Float128.Log(0));
@@ -1067,18 +1067,18 @@ public class Float128Tests
     {
         // Deep-tiny and subnormal arguments take the Taylor-sign shortcut; check it against the oracle.
         Float128[] xs = [Float128.ScaleB((Float128)1.375, -201), -Float128.ScaleB(Float128.One / 3, -260), Float128.ScaleB(Float128.Pi, -700)];
-        var fs = new (string, Func<Float128, RealRounding, Float128>, Func<Real, int, RealRounding, Real>)[]
+        var fs = new (string, Func<Float128, RoundingMode, Float128>, Func<BigFloat, int, RoundingMode, BigFloat>)[]
         {
-            ("Exp", Float128.Exp, Real.Exp), ("ExpM1", Float128.ExpM1, Real.ExpM1), ("LogP1", Float128.LogP1, Real.LogP1),
-            ("Sin", Float128.Sin, Real.Sin), ("Cos", Float128.Cos, Real.Cos), ("Tan", Float128.Tan, Real.Tan),
-            ("Atan", Float128.Atan, Real.Atan), ("Sinh", Float128.Sinh, Real.Sinh), ("Tanh", Float128.Tanh, Real.Tanh),
+            ("Exp", Float128.Exp, BigFloat.Exp), ("ExpM1", Float128.ExpM1, BigFloat.ExpM1), ("LogP1", Float128.LogP1, BigFloat.LogP1),
+            ("Sin", Float128.Sin, BigFloat.Sin), ("Cos", Float128.Cos, BigFloat.Cos), ("Tan", Float128.Tan, BigFloat.Tan),
+            ("Atan", Float128.Atan, BigFloat.Atan), ("Sinh", Float128.Sinh, BigFloat.Sinh), ("Tanh", Float128.Tanh, BigFloat.Tanh),
         };
         foreach (var (name, f, g) in fs)
         {
             foreach (Float128 x in xs)
             {
-                Real rx = R(x);
-                foreach (RealRounding mode in Modes)
+                BigFloat rx = R(x);
+                foreach (RoundingMode mode in Modes)
                 {
                     AssertBits(Oracle((p, m) => g(rx, p, m), mode), f(x, mode), $"{name}({H(x.ToBits())}) {mode}");
                 }
@@ -1086,29 +1086,29 @@ public class Float128Tests
         }
         Float128 e3 = Float128.Epsilon * 3;
         Assert.Equal(e3, Float128.Sin(e3));
-        Assert.Equal(Float128.Epsilon * 2, Float128.Sin(e3, RealRounding.TowardZero));
-        Assert.Equal(Float128.Epsilon * 4, Float128.Atanh(e3, RealRounding.TowardPositive));
-        Assert.Equal(-Float128.Epsilon * 2, Float128.ExpM1(-e3, RealRounding.TowardZero));
-        Assert.Equal(Float128.BitDecrement(Float128.One), Float128.Cos(e3, RealRounding.TowardZero));
-        Assert.Equal(Float128.BitIncrement(Float128.One), Float128.Exp(e3, RealRounding.TowardPositive));
+        Assert.Equal(Float128.Epsilon * 2, Float128.Sin(e3, RoundingMode.TowardZero));
+        Assert.Equal(Float128.Epsilon * 4, Float128.Atanh(e3, RoundingMode.TowardPositive));
+        Assert.Equal(-Float128.Epsilon * 2, Float128.ExpM1(-e3, RoundingMode.TowardZero));
+        Assert.Equal(Float128.BitDecrement(Float128.One), Float128.Cos(e3, RoundingMode.TowardZero));
+        Assert.Equal(Float128.BitIncrement(Float128.One), Float128.Exp(e3, RoundingMode.TowardPositive));
     }
 
     [Fact]
     public void TrigFamily()
     {
-        CheckUnary(40, 150, -10, 10, Float128.Sin, Real.Sin, "Sin");
-        CheckUnary(41, 150, -10, 10, Float128.Cos, Real.Cos, "Cos");
-        CheckUnary(42, 100, -10, 10, Float128.Tan, Real.Tan, "Tan");
-        CheckUnary(43, 40, -1e30, 1e30, Float128.Sin, Real.Sin, "SinLarge");
-        CheckUnary(44, 100, -1, 1, Float128.Asin, Real.Asin, "Asin");
-        CheckUnary(45, 100, -1, 1, Float128.Acos, Real.Acos, "Acos");
-        CheckUnary(46, 100, -1e6, 1e6, Float128.Atan, Real.Atan, "Atan");
-        CheckUnary(47, 80, -10, 10, Float128.SinPi, Real.SinPi, "SinPi");
-        CheckUnary(48, 80, -10, 10, Float128.CosPi, Real.CosPi, "CosPi");
-        CheckUnary(49, 60, -10, 10, Float128.TanPi, Real.TanPi, "TanPi");
-        CheckUnary(50, 60, -1, 1, Float128.AsinPi, Real.AsinPi, "AsinPi");
-        CheckUnary(51, 60, -1, 1, Float128.AcosPi, Real.AcosPi, "AcosPi");
-        CheckUnary(52, 60, -100, 100, Float128.AtanPi, Real.AtanPi, "AtanPi");
+        CheckUnary(40, 150, -10, 10, Float128.Sin, BigFloat.Sin, "Sin");
+        CheckUnary(41, 150, -10, 10, Float128.Cos, BigFloat.Cos, "Cos");
+        CheckUnary(42, 100, -10, 10, Float128.Tan, BigFloat.Tan, "Tan");
+        CheckUnary(43, 40, -1e30, 1e30, Float128.Sin, BigFloat.Sin, "SinLarge");
+        CheckUnary(44, 100, -1, 1, Float128.Asin, BigFloat.Asin, "Asin");
+        CheckUnary(45, 100, -1, 1, Float128.Acos, BigFloat.Acos, "Acos");
+        CheckUnary(46, 100, -1e6, 1e6, Float128.Atan, BigFloat.Atan, "Atan");
+        CheckUnary(47, 80, -10, 10, Float128.SinPi, BigFloat.SinPi, "SinPi");
+        CheckUnary(48, 80, -10, 10, Float128.CosPi, BigFloat.CosPi, "CosPi");
+        CheckUnary(49, 60, -10, 10, Float128.TanPi, BigFloat.TanPi, "TanPi");
+        CheckUnary(50, 60, -1, 1, Float128.AsinPi, BigFloat.AsinPi, "AsinPi");
+        CheckUnary(51, 60, -1, 1, Float128.AcosPi, BigFloat.AcosPi, "AcosPi");
+        CheckUnary(52, 60, -100, 100, Float128.AtanPi, BigFloat.AtanPi, "AtanPi");
         Assert.Equal(Float128.Zero, Float128.Sin(0));
         Assert.Equal(Float128.One, Float128.SinPi((Float128)0.5));
         Assert.Equal(Float128.Sin(Float128.Pi), Float128.SinCos(Float128.Pi).Sin);
@@ -1121,16 +1121,16 @@ public class Float128Tests
         for (int i = 0; i < 150; i++)
         {
             Float128 x = RandomArg(rng, 0, 100), y = RandomArg(rng, -40, 40);
-            Real rx = R(x), ry = R(y);
-            RealRounding mode = Modes[i % Modes.Length];
-            AssertBits(Oracle((p, m) => Real.Pow(rx, ry, p, m), mode), Float128.Pow(x, y, mode), $"Pow({x}, {y}) {mode}");
-            AssertBits(Oracle((p, m) => Real.Atan2(ry, rx, p, m), mode), Float128.Atan2(y, x, mode), $"Atan2 {mode}");
-            AssertBits(Oracle((p, m) => Real.Atan2Pi(ry, rx, p, m), mode), Float128.Atan2Pi(y, x, mode), $"Atan2Pi {mode}");
-            AssertBits(Oracle((p, m) => Real.Hypot(rx, ry, p, m), mode), Float128.Hypot(x, y, mode), $"Hypot {mode}");
+            BigFloat rx = R(x), ry = R(y);
+            RoundingMode mode = Modes[i % Modes.Length];
+            AssertBits(Oracle((p, m) => BigFloat.Pow(rx, ry, p, m), mode), Float128.Pow(x, y, mode), $"Pow({x}, {y}) {mode}");
+            AssertBits(Oracle((p, m) => BigFloat.Atan2(ry, rx, p, m), mode), Float128.Atan2(y, x, mode), $"Atan2 {mode}");
+            AssertBits(Oracle((p, m) => BigFloat.Atan2Pi(ry, rx, p, m), mode), Float128.Atan2Pi(y, x, mode), $"Atan2Pi {mode}");
+            AssertBits(Oracle((p, m) => BigFloat.Hypot(rx, ry, p, m), mode), Float128.Hypot(x, y, mode), $"Hypot {mode}");
             int n = rng.Next(-7, 8);
             if (n != 0)
             {
-                AssertBits(Oracle((p, m) => Real.RootN(rx, (long)n, p, m), mode), Float128.RootN(x, n, mode), $"RootN({x}, {n}) {mode}");
+                AssertBits(Oracle((p, m) => BigFloat.RootN(rx, (long)n, p, m), mode), Float128.RootN(x, n, mode), $"RootN({x}, {n}) {mode}");
             }
         }
         Assert.Equal((Float128)8, Float128.Pow(2, 3));
@@ -1141,6 +1141,6 @@ public class Float128Tests
         Assert.Equal(Float128.Zero, Float128.Pow(10, -5000));
         Assert.Equal(Float128.PositiveInfinity, Float128.Pow(Float128.BitIncrement(1), Float128.ScaleB(1, 130)));
         Assert.Equal(Float128.Pow((Float128)1.5, 7), Float128.Pow((Float128)1.5, 7));
-        AssertBits(Oracle((p, m) => Real.Pow(R(1.5), R(-28100), p, m), RealRounding.NearestEven), Float128.Pow((Float128)1.5, -28100), "Pow subnormal");
+        AssertBits(Oracle((p, m) => BigFloat.Pow(R(1.5), R(-28100), p, m), RoundingMode.NearestEven), Float128.Pow((Float128)1.5, -28100), "Pow subnormal");
     }
 }

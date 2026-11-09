@@ -7,7 +7,7 @@ namespace Sdcb.Arithmetic;
 // and the rounding test). Each K* method returns y and a relative bound eps with f = y·2^scale·(1 + θ),
 // |θ| ≤ eps, or false when the argument is outside the range its bound was derived for. The Eps* constants
 // are the bounds used in the rounding test: each is the derived bound (stated next to it) times a safety
-// factor of at least 2^6, and at least 2^8 times the largest error observed against Real at 300 bits
+// factor of at least 2^6, and at least 2^8 times the largest error observed against BigFloat at 300 bits
 // (Float128FastPathTests.KernelErrorsStayFarBelowTheirBounds).
 public readonly partial struct Float128
 {
@@ -823,108 +823,108 @@ public readonly partial struct Float128
     }
 
     /// <summary>Test hook: the fast path alone (false when it would fall back).</summary>
-    internal static bool FastPathTry(int function, Float128 x, Float128 y, RealRounding rounding, out Float128 result)
+    internal static bool FastPathTry(int function, Float128 x, Float128 y, RoundingMode rounding, out Float128 result)
     {
         result = default;
-        return (uint)rounding <= (uint)RealRounding.AwayFromZero
+        return (uint)rounding <= (uint)RoundingMode.AwayFromZero
             && Kernel((FastFunction)function, x, y, out Td r, out int scale, out double eps)
             && TryRound(r, scale, eps, rounding, out result);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool ValidMode(RealRounding rounding) => (uint)rounding <= (uint)RealRounding.AwayFromZero;
+    private static bool ValidMode(RoundingMode rounding) => (uint)rounding <= (uint)RoundingMode.AwayFromZero;
 
-    private static bool TryExpFast(Float128 x, RealRounding rounding, out Float128 result)
+    private static bool TryExpFast(Float128 x, RoundingMode rounding, out Float128 result)
     {
         result = default;
         return ValidMode(rounding) && KExp(x, out Td y, out int s, out double e) && TryRound(y, s, e, rounding, out result);
     }
 
-    private static bool TryExp2Fast(Float128 x, RealRounding rounding, out Float128 result)
+    private static bool TryExp2Fast(Float128 x, RoundingMode rounding, out Float128 result)
     {
         result = default;
         return ValidMode(rounding) && KExp2(x, out Td y, out int s, out double e) && TryRound(y, s, e, rounding, out result);
     }
 
-    private static bool TryLogFast(Float128 x, RealRounding rounding, out Float128 result)
+    private static bool TryLogFast(Float128 x, RoundingMode rounding, out Float128 result)
     {
         result = default;
         return ValidMode(rounding) && KLog(x, out Td y, out int s, out double e) && TryRound(y, s, e, rounding, out result);
     }
 
-    private static bool TryLog2Fast(Float128 x, RealRounding rounding, out Float128 result)
+    private static bool TryLog2Fast(Float128 x, RoundingMode rounding, out Float128 result)
     {
         result = default;
         return ValidMode(rounding) && KLog2(x, out Td y, out int s, out double e) && TryRound(y, s, e, rounding, out result);
     }
 
-    private static bool TryLog10Fast(Float128 x, RealRounding rounding, out Float128 result)
+    private static bool TryLog10Fast(Float128 x, RoundingMode rounding, out Float128 result)
     {
         result = default;
         return ValidMode(rounding) && KLog10(x, out Td y, out int s, out double e) && TryRound(y, s, e, rounding, out result);
     }
 
-    private static bool TryPowFast(Float128 x, Float128 y, RealRounding rounding, out Float128 result)
+    private static bool TryPowFast(Float128 x, Float128 y, RoundingMode rounding, out Float128 result)
     {
         result = default;
         return ValidMode(rounding) && KPow(x, y, out Td r, out int s, out double e) && TryRound(r, s, e, rounding, out result);
     }
 
-    private static bool TrySinFast(Float128 x, RealRounding rounding, out Float128 result)
+    private static bool TrySinFast(Float128 x, RoundingMode rounding, out Float128 result)
     {
         result = default;
         return ValidMode(rounding) && KSin(x, out Td y, out int s, out double e) && TryRound(y, s, e, rounding, out result);
     }
 
-    private static bool TryCosFast(Float128 x, RealRounding rounding, out Float128 result)
+    private static bool TryCosFast(Float128 x, RoundingMode rounding, out Float128 result)
     {
         result = default;
         return ValidMode(rounding) && KCos(x, out Td y, out int s, out double e) && TryRound(y, s, e, rounding, out result);
     }
 
-    private static bool TryTanFast(Float128 x, RealRounding rounding, out Float128 result)
+    private static bool TryTanFast(Float128 x, RoundingMode rounding, out Float128 result)
     {
         result = default;
         return ValidMode(rounding) && KTan(x, out Td y, out int s, out double e) && TryRound(y, s, e, rounding, out result);
     }
 
-    private static bool TryAsinFast(Float128 x, RealRounding rounding, out Float128 result)
+    private static bool TryAsinFast(Float128 x, RoundingMode rounding, out Float128 result)
     {
         result = default;
         return ValidMode(rounding) && KAsin(x, out Td y, out int s, out double e) && TryRound(y, s, e, rounding, out result);
     }
 
-    private static bool TryAcosFast(Float128 x, RealRounding rounding, out Float128 result)
+    private static bool TryAcosFast(Float128 x, RoundingMode rounding, out Float128 result)
     {
         result = default;
         return ValidMode(rounding) && KAcos(x, out Td y, out int s, out double e) && TryRound(y, s, e, rounding, out result);
     }
 
-    private static bool TryAtanFast(Float128 x, RealRounding rounding, out Float128 result)
+    private static bool TryAtanFast(Float128 x, RoundingMode rounding, out Float128 result)
     {
         result = default;
         return ValidMode(rounding) && KAtan(x, out Td y, out int s, out double e) && TryRound(y, s, e, rounding, out result);
     }
 
-    private static bool TryAtan2Fast(Float128 y, Float128 x, RealRounding rounding, out Float128 result)
+    private static bool TryAtan2Fast(Float128 y, Float128 x, RoundingMode rounding, out Float128 result)
     {
         result = default;
         return ValidMode(rounding) && KAtan2(y, x, out Td r, out int s, out double e) && TryRound(r, s, e, rounding, out result);
     }
 
-    private static bool TrySinhFast(Float128 x, RealRounding rounding, out Float128 result)
+    private static bool TrySinhFast(Float128 x, RoundingMode rounding, out Float128 result)
     {
         result = default;
         return ValidMode(rounding) && KSinh(x, out Td y, out int s, out double e) && TryRound(y, s, e, rounding, out result);
     }
 
-    private static bool TryCoshFast(Float128 x, RealRounding rounding, out Float128 result)
+    private static bool TryCoshFast(Float128 x, RoundingMode rounding, out Float128 result)
     {
         result = default;
         return ValidMode(rounding) && KCosh(x, out Td y, out int s, out double e) && TryRound(y, s, e, rounding, out result);
     }
 
-    private static bool TryTanhFast(Float128 x, RealRounding rounding, out Float128 result)
+    private static bool TryTanhFast(Float128 x, RoundingMode rounding, out Float128 result)
     {
         result = default;
         return ValidMode(rounding) && KTanh(x, out Td y, out int s, out double e) && TryRound(y, s, e, rounding, out result);

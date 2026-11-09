@@ -1,6 +1,6 @@
-# Real: correctly-rounded floating point
+# BigFloat: correctly-rounded floating point
 
-`Real` is the managed equivalent of MPFR's `mpfr_t`: an immutable binary floating-point
+`BigFloat` is the managed equivalent of MPFR's `mpfr_t`: an immutable binary floating-point
 number with a per-value precision in bits.
 
 ## Features
@@ -15,7 +15,7 @@ number with a per-value precision in bits.
 - **Function coverage** (all correctly rounded; see [gmp-mapping.md](gmp-mapping.md) for the MPFR names):
   - arithmetic: `Add`, `Subtract`, `Multiply`, `Divide`, `Square`, `FusedMultiplyAdd`/`FusedMultiplySubtract`,
     single-rounding `Sum`/`Dot`, `Hypot`, `PositiveDifference`, `Min`/`Max`, `CopySign`;
-  - roots and powers: `Sqrt`, `ReciprocalSqrt`, `Cbrt`, `RootN`, `Pow` (`Real`, `long` or `BigInt` exponent),
+  - roots and powers: `Sqrt`, `ReciprocalSqrt`, `Cbrt`, `RootN`, `Pow` (`BigFloat`, `long` or `BigInt` exponent),
     `Powr`, `Compound`, with algebraic exactness detection;
   - exponentials and logarithms: `Exp`, `Exp2`, `Exp10`, `ExpM1`, `Exp2M1`, `Exp10M1`, `Log`, `Log2`, `Log10`,
     `LogP1`, `Log2P1`, `Log10P1`, logarithm to an arbitrary base;
@@ -42,11 +42,11 @@ number with a per-value precision in bits.
 ```csharp
 using Sdcb.Arithmetic;
 
-Real.DefaultPrecision = 256;                       // bits
-Real pi = Real.Pi();                               // correctly rounded π
-Real x = Real.Parse("1.5");
-Real y = Real.Sin(x);                              // correctly rounded
-Real z = Real.Exp(y, precision: 512, RealRounding.TowardPositive);
+BigFloat.DefaultPrecision = 256;                       // bits
+BigFloat pi = BigFloat.Pi();                               // correctly rounded π
+BigFloat x = BigFloat.Parse("1.5");
+BigFloat y = BigFloat.Sin(x);                              // correctly rounded
+BigFloat z = BigFloat.Exp(y, precision: 512, RoundingMode.TowardPositive);
 Console.WriteLine(z);                              // round-trip decimal output
-double d = z.ToDouble(RealRounding.NearestEven);   // correctly rounded projection
+double d = z.ToDouble(RoundingMode.NearestEven);   // correctly rounded projection
 ```

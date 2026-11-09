@@ -71,7 +71,7 @@ public readonly partial struct QuadDouble
     /// <summary>The decimal rounded to QD (via a 320-bit intermediate).</summary>
     public static explicit operator QuadDouble(decimal value)
     {
-        QuadDouble r = FromReal(Real.FromDecimal(value, 320));
+        QuadDouble r = FromBigFloat(BigFloat.FromDecimal(value, 320));
         return r._x0 == 0 && decimal.IsNegative(value) ? NegativeZero : r;
     }
 
@@ -83,22 +83,22 @@ public readonly partial struct QuadDouble
         {
             return value.Sign < 0 ? NegativeInfinity : PositiveInfinity;
         }
-        return FromReal(Real.FromBigInt(value, (int)Math.Max(bits, 64)));
+        return FromBigFloat(BigFloat.FromBigInt(value, (int)Math.Max(bits, 64)));
     }
 
     /// <summary>The integer rounded to QD; ±∞ beyond the double range.</summary>
     public static explicit operator QuadDouble(BigInteger value) => (QuadDouble)(BigInt)value;
 
     /// <summary>The rational rounded to QD (via a 320-bit intermediate).</summary>
-    public static explicit operator QuadDouble(BigRational value) => FromReal(Real.FromRational(value, 320));
+    public static explicit operator QuadDouble(BigRational value) => FromBigFloat(BigFloat.FromRational(value, 320));
 
     /// <summary>
-    /// The Real rounded to QD by successive nearest-double extraction of the exact residuals
+    /// The BigFloat rounded to QD by successive nearest-double extraction of the exact residuals
     /// (x0 = round(v), x1 = round(v - x0), ...).
     /// </summary>
-    public static explicit operator QuadDouble(Real value) => FromReal(value);
+    public static explicit operator QuadDouble(BigFloat value) => FromBigFloat(value);
 
-    internal static QuadDouble FromReal(Real value)
+    internal static QuadDouble FromBigFloat(BigFloat value)
     {
         if (value.IsNaN)
         {
@@ -118,11 +118,11 @@ public readonly partial struct QuadDouble
         {
             return Single(c0);
         }
-        Real r = Real.Subtract(value, Real.FromDouble(c0, 64), prec);
+        BigFloat r = BigFloat.Subtract(value, BigFloat.FromDouble(c0, 64), prec);
         double c1 = r.ToDouble();
-        r = Real.Subtract(r, Real.FromDouble(c1, 64), prec);
+        r = BigFloat.Subtract(r, BigFloat.FromDouble(c1, 64), prec);
         double c2 = r.ToDouble();
-        r = Real.Subtract(r, Real.FromDouble(c2, 64), prec);
+        r = BigFloat.Subtract(r, BigFloat.FromDouble(c2, 64), prec);
         double c3 = r.ToDouble();
         return new QuadDouble(c0, c1, c2, c3, Tag.Raw);
     }
@@ -132,39 +132,39 @@ public readonly partial struct QuadDouble
     // ---------------------------------------------------------------
 
     /// <summary>The exact value (the precision is chosen from the components' exponent span).</summary>
-    public static implicit operator Real(QuadDouble value) => ToRealExact(value);
+    public static implicit operator BigFloat(QuadDouble value) => ToBigFloatExact(value);
 
-    internal static Real ToRealExact(QuadDouble a)
+    internal static BigFloat ToBigFloatExact(QuadDouble a)
     {
         double x0 = a._x0;
         if (double.IsNaN(x0))
         {
-            return Real.NaN;
+            return BigFloat.NaN;
         }
         if (double.IsInfinity(x0))
         {
-            return x0 > 0 ? Real.PositiveInfinity : Real.NegativeInfinity;
+            return x0 > 0 ? BigFloat.PositiveInfinity : BigFloat.NegativeInfinity;
         }
         if (x0 == 0)
         {
-            return double.IsNegative(x0) ? Real.NegativeZero.WithPrecision(64) : Real.Zero.WithPrecision(64);
+            return double.IsNegative(x0) ? BigFloat.NegativeZero.WithPrecision(64) : BigFloat.Zero.WithPrecision(64);
         }
         double last = a._x3 != 0 ? a._x3 : a._x2 != 0 ? a._x2 : a._x1 != 0 ? a._x1 : x0;
         int lsb = Math.Max(Math.ILogB(last) - 52, -1074);
         int msb = Math.ILogB(x0) + 1;
         int prec = Math.Max(msb - lsb + 2, 64);
-        Real s = Real.FromDouble(x0, prec);
+        BigFloat s = BigFloat.FromDouble(x0, prec);
         if (a._x1 != 0)
         {
-            s = Real.Add(s, Real.FromDouble(a._x1, 64), prec);
+            s = BigFloat.Add(s, BigFloat.FromDouble(a._x1, 64), prec);
         }
         if (a._x2 != 0)
         {
-            s = Real.Add(s, Real.FromDouble(a._x2, 64), prec);
+            s = BigFloat.Add(s, BigFloat.FromDouble(a._x2, 64), prec);
         }
         if (a._x3 != 0)
         {
-            s = Real.Add(s, Real.FromDouble(a._x3, 64), prec);
+            s = BigFloat.Add(s, BigFloat.FromDouble(a._x3, 64), prec);
         }
         return s;
     }
@@ -178,7 +178,7 @@ public readonly partial struct QuadDouble
         double d = ToDoubleNearest(value);
         if (IsSingleMidpoint(d))
         {
-            return ToRealExact(value).ToSingle();
+            return ToBigFloatExact(value).ToSingle();
         }
         return (float)d;
     }
@@ -194,7 +194,7 @@ public readonly partial struct QuadDouble
             System.Half other = d > back ? System.Half.BitIncrement(h) : System.Half.BitDecrement(h);
             if (double.IsFinite((double)other) && (double)other - d == d - back)
             {
-                return ToRealExact(value).ToHalf();
+                return ToBigFloatExact(value).ToHalf();
             }
         }
         return h;
@@ -237,17 +237,17 @@ public readonly partial struct QuadDouble
         {
             throw new OverflowException("Value was either too large or too small for a Decimal.");
         }
-        return ToRealExact(value).ToDecimal();
+        return ToBigFloatExact(value).ToDecimal();
     }
 
     /// <summary>Truncates toward zero; throws <see cref="OverflowException"/> for NaN or ∞.</summary>
-    public static explicit operator BigInt(QuadDouble value) => ToRealExact(value).ToBigInt();
+    public static explicit operator BigInt(QuadDouble value) => ToBigFloatExact(value).ToBigInt();
 
     /// <summary>Truncates toward zero; throws <see cref="OverflowException"/> for NaN or ∞.</summary>
-    public static explicit operator BigInteger(QuadDouble value) => (BigInteger)ToRealExact(value).ToBigInt();
+    public static explicit operator BigInteger(QuadDouble value) => (BigInteger)ToBigFloatExact(value).ToBigInt();
 
     /// <summary>The exact value; throws <see cref="OverflowException"/> for NaN or ∞.</summary>
-    public static explicit operator BigRational(QuadDouble value) => ToRealExact(value).ToRational();
+    public static explicit operator BigRational(QuadDouble value) => ToBigFloatExact(value).ToRational();
 
     /// <summary>
     /// Truncates toward zero into an integer primitive. Checked throws on NaN or overflow;
@@ -329,7 +329,7 @@ public readonly partial struct QuadDouble
         if (typeof(TOther) == typeof(BigInt)) { result = (QuadDouble)(BigInt)(object)value; return true; }
         if (typeof(TOther) == typeof(BigInteger)) { result = (QuadDouble)(BigInteger)(object)value; return true; }
         if (typeof(TOther) == typeof(BigRational)) { result = (QuadDouble)(BigRational)(object)value; return true; }
-        if (typeof(TOther) == typeof(Real)) { result = FromReal((Real)(object)value); return true; }
+        if (typeof(TOther) == typeof(BigFloat)) { result = FromBigFloat((BigFloat)(object)value); return true; }
         result = default;
         return false;
     }
@@ -366,9 +366,9 @@ public readonly partial struct QuadDouble
             result = (TOther)(object)m;
             return true;
         }
-        if (typeof(TOther) == typeof(Real))
+        if (typeof(TOther) == typeof(BigFloat))
         {
-            result = (TOther)(object)ToRealExact(value);
+            result = (TOther)(object)ToBigFloatExact(value);
             return true;
         }
         if (typeof(TOther) == typeof(BigInteger) || typeof(TOther) == typeof(BigInt) || typeof(TOther) == typeof(BigRational))

@@ -1,13 +1,13 @@
 namespace Sdcb.Arithmetic;
 
-public readonly partial struct Real
+public readonly partial struct BigFloat
 {
     // ---------------------------------------------------------------
     // Hyperbolic functions (mpfr_sinh/cosh/tanh and inverses)
     // ---------------------------------------------------------------
 
     /// <summary>Hyperbolic sine (mpfr_sinh).</summary>
-    public static Real Sinh(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Sinh(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
@@ -41,7 +41,7 @@ public readonly partial struct Real
     }
 
     /// <summary>Hyperbolic cosine (mpfr_cosh).</summary>
-    public static Real Cosh(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Cosh(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
@@ -67,7 +67,7 @@ public readonly partial struct Real
     }
 
     /// <summary>Hyperbolic tangent (mpfr_tanh).</summary>
-    public static Real Tanh(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Tanh(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
@@ -107,7 +107,7 @@ public readonly partial struct Real
     }
 
     /// <summary>exp(x) in fixed point at wp bits (positive result).</summary>
-    private static BigInt ExpFixed(Real x, int wpi)
+    private static BigInt ExpFixed(BigFloat x, int wpi)
     {
         (BigInt m, long e, _) = ExpStep(x, wpi);
         long sh = e + wpi;
@@ -115,7 +115,7 @@ public readonly partial struct Real
     }
 
     /// <summary>Inverse hyperbolic sine: ln(x + sqrt(x²+1)) (mpfr_asinh).</summary>
-    public static Real Asinh(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Asinh(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
@@ -137,14 +137,14 @@ public readonly partial struct Real
             BigInt one = BigInt.One << wpi;
             BigInt xf = x.Abs().ToFixed(wpi);
             BigInt s = FixSqrt(FixSqr(xf, wpi) + one, wpi);
-            Real u = FromFixed(xf + s, wpi, wpi + 8, RealRounding.NearestEven);
+            BigFloat u = FromFixed(xf + s, wpi, wpi + 8, RoundingMode.NearestEven);
             (BigInt lm, long le, long lerr) = LogStep(u, wp + 8);
             return (x.IsNeg ? -lm : lm, le, lerr + 64);
         });
     }
 
     /// <summary>Inverse hyperbolic cosine: ln(x + sqrt(x²-1)) for x >= 1 (mpfr_acosh).</summary>
-    public static Real Acosh(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Acosh(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         if (x._kind == Kind.NaN || x._kind == Kind.Zero || x.IsNeg)
@@ -172,14 +172,14 @@ public readonly partial struct Real
             BigInt one = BigInt.One << wpi;
             BigInt xf = x.ToFixed(wpi);
             BigInt s = FixSqrt(FixSqr(xf, wpi) - one, wpi);
-            Real u = FromFixed(xf + s, wpi, wpi + 8, RealRounding.NearestEven);
+            BigFloat u = FromFixed(xf + s, wpi, wpi + 8, RoundingMode.NearestEven);
             (BigInt lm, long le, long lerr) = LogStep(u, wp + 8);
             return (lm, le, lerr + 64);
         });
     }
 
     /// <summary>Inverse hyperbolic tangent for |x| &lt; 1 (mpfr_atanh).</summary>
-    public static Real Atanh(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Atanh(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
@@ -210,7 +210,7 @@ public readonly partial struct Real
             int wpi = wp + (int)Math.Min(extra, 1 << 24) + 64;
             BigInt one = BigInt.One << wpi;
             BigInt xf = x.Abs().ToFixed(wpi);
-            Real u = FromFixed(FixDiv(one + xf, one - xf, wpi), wpi, wpi + 8, RealRounding.NearestEven);
+            BigFloat u = FromFixed(FixDiv(one + xf, one - xf, wpi), wpi, wpi + 8, RoundingMode.NearestEven);
             (BigInt lm, long le, long lerr) = LogStep(u, wp + 8);
             return (x.IsNeg ? -lm : lm, le - 1, lerr + 64);
         });

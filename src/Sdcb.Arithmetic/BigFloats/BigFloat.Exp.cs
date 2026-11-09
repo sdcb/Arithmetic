@@ -2,14 +2,14 @@ using System.Diagnostics;
 
 namespace Sdcb.Arithmetic;
 
-public readonly partial struct Real
+public readonly partial struct BigFloat
 {
     // ---------------------------------------------------------------
     // Exponential family (mpfr_exp, exp2, exp10, expm1)
     // ---------------------------------------------------------------
 
     /// <summary>e^x correctly rounded (mpfr_exp).</summary>
-    public static Real Exp(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Exp(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
@@ -30,7 +30,7 @@ public readonly partial struct Real
     }
 
     /// <summary>Core exp approximation: returns exp(x) as (m, e, err).</summary>
-    private static (BigInt, long, long) ExpStep(Real x, int wp)
+    private static (BigInt, long, long) ExpStep(BigFloat x, int wp)
     {
         // With rectangular splitting the series costs ~2√N multiplications, so fewer
         // halvings (each undone by a squaring) than the classic √wp pay off.
@@ -65,14 +65,14 @@ public readonly partial struct Real
     private static BigInt DivRoundZ(BigInt v, ulong d) => BigInt.DivRem(v, d, out _);
 
     /// <summary>2^x (mpfr_exp2).</summary>
-    public static Real Exp2(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Exp2(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
         => ExpScaled(x, 2, precision, rounding);
 
     /// <summary>10^x (mpfr_exp10).</summary>
-    public static Real Exp10(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Exp10(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
         => ExpScaled(x, 10, precision, rounding);
 
-    private static Real ExpScaled(Real x, int b, int precision, RealRounding rounding)
+    private static BigFloat ExpScaled(BigFloat x, int b, int precision, RoundingMode rounding)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
@@ -114,7 +114,7 @@ public readonly partial struct Real
             BigInt lnb = b == 2 ? Ln2Fixed(wpi) : LogOfSmallInt(b, wpi);
             BigInt xf = x.ToFixed(wpi);
             BigInt prodF = FixMul(xf, lnb, wpi); // x*ln b at wpi
-            Real y = FromFixed(prodF, wpi, wpi, RealRounding.NearestEven);
+            BigFloat y = FromFixed(prodF, wpi, wpi, RoundingMode.NearestEven);
             if (y._kind != Kind.Normal)
             {
                 return (BigInt.One << wp, -wp, 8); // x*lnb ~ 0 → result ~ 1
@@ -127,14 +127,14 @@ public readonly partial struct Real
     /// <summary>ln(k) for a small integer k at wp fractional bits.</summary>
     private static BigInt LogOfSmallInt(int k, int wp)
     {
-        Real r = FromBigInt(new BigInt(k), wp + 8);
+        BigFloat r = FromBigInt(new BigInt(k), wp + 8);
         (BigInt m, long e, _) = LogStep(r, wp + 8);
         long shift = e + wp;
         return shift >= 0 ? m.ShiftLeft(shift) : m.ShiftRightTruncate(-shift);
     }
 
     /// <summary>e^x - 1 with full accuracy near zero (mpfr_expm1).</summary>
-    public static Real ExpM1(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat ExpM1(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
@@ -176,10 +176,10 @@ public readonly partial struct Real
     // ---------------------------------------------------------------
 
     /// <summary>Natural logarithm, correctly rounded (mpfr_log).</summary>
-    public static Real Log(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Log(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, x.Precision);
-        Real? special = LogSpecial(x, prec);
+        BigFloat? special = LogSpecial(x, prec);
         if (special.HasValue)
         {
             return special.Value;
@@ -192,7 +192,7 @@ public readonly partial struct Real
         return Ziv(prec, rounding, wp => LogStep(x, wp));
     }
 
-    private static Real? LogSpecial(Real x, int prec)
+    private static BigFloat? LogSpecial(BigFloat x, int prec)
     {
         switch (x._kind)
         {
@@ -210,7 +210,7 @@ public readonly partial struct Real
         return null;
     }
 
-    private static bool IsPowerOfTwoValue(Real x, out long k)
+    private static bool IsPowerOfTwoValue(BigFloat x, out long k)
     {
         k = 0;
         if (x._kind != Kind.Normal || !x._man.IsPowerOfTwo)
@@ -225,7 +225,7 @@ public readonly partial struct Real
     internal static int LogAgmThreshold = int.TryParse(Environment.GetEnvironmentVariable("SDCB_ARITHMETIC_LOGAGM"), out int t0) ? t0 : 700;
 
     /// <summary>Core log approximation.</summary>
-    private static (BigInt, long, long) LogStep(Real x, int wp)
+    private static (BigInt, long, long) LogStep(BigFloat x, int wp)
     {
         Debug.Assert(x._kind == Kind.Normal && !x.IsNeg);
         if (wp >= LogAgmThreshold)
@@ -235,7 +235,7 @@ public readonly partial struct Real
             long cancel = 0;
             if (ex is 0 or 1)
             {
-                Real d = Subtract(x, One, x.Precision + 2);
+                BigFloat d = Subtract(x, One, x.Precision + 2);
                 cancel = d._kind == Kind.Zero ? long.MaxValue : -d.BinaryExponent;
             }
             if (cancel < wp / 8)
@@ -250,30 +250,30 @@ public readonly partial struct Real
     /// ln x = π / (2 AGM(1, 4/s)) - m ln 2 with s = x 2^m &gt;= 2^(wpi/2) (Brent-Salamin,
     /// as in mpfr_log): O(log p) multiplications and square roots.
     /// </summary>
-    private static (BigInt, long, long) LogAgmStep(Real x, int wp, int cancel)
+    private static (BigInt, long, long) LogAgmStep(BigFloat x, int wp, int cancel)
     {
         int lg = 64 - System.Numerics.BitOperations.LeadingZeroCount((ulong)wp);
         int p = wp + cancel + 2 * lg + 32;
         long m = (p + 1) / 2 + 4 - x.BinaryExponent;
         // Floating-point AGM (b0 = 4/s is tiny, so fixed point would lose its relative precision).
-        Real a = FromBigInt(BigInt.One, p);
-        Real b = Divide(FromBigInt(new BigInt(4)), x.ShiftLeft(m), p);
+        BigFloat a = FromBigInt(BigInt.One, p);
+        BigFloat b = Divide(FromBigInt(new BigInt(4)), x.ShiftLeft(m), p);
         int iters = 0;
         while (true)
         {
-            Real diff = Subtract(a, b, p);
+            BigFloat diff = Subtract(a, b, p);
             // Converged when (a-b)^2/a is below one ulp: then AGM = (a+b)/2 to full precision.
             if (diff._kind == Kind.Zero || diff.BinaryExponent < a.BinaryExponent - p / 2 + 1)
             {
                 break;
             }
-            Real a1 = Add(a, b, p).ShiftRight(1);
+            BigFloat a1 = Add(a, b, p).ShiftRight(1);
             b = Sqrt(Multiply(a, b, p), p);
             a = a1;
             iters++;
         }
-        Real agm2 = Add(a, b, p); // 2 * AGM
-        Real pi = FromFixed(PiFixed(p + 8), p + 8, p + 8, RealRounding.NearestEven);
+        BigFloat agm2 = Add(a, b, p); // 2 * AGM
+        BigFloat pi = FromFixed(PiFixed(p + 8), p + 8, p + 8, RoundingMode.NearestEven);
         BigInt lns = Divide(pi, agm2, p).ToFixed(p);
         BigInt v = lns - new BigInt(m) * Ln2Fixed(p);
         // Relative error ~ (iters+4) ulps on ln s (~ p/2 * 0.7 in magnitude), plus m ulps from m ln2.
@@ -282,14 +282,14 @@ public readonly partial struct Real
     }
 
     /// <summary>Log via square roots toward 1 and the atanh series (best at low precision or near 1).</summary>
-    private static (BigInt, long, long) LogSeriesStep(Real x, int wp)
+    private static (BigInt, long, long) LogSeriesStep(BigFloat x, int wp)
     {
         // Square roots cost ~3x a multiply, so use fewer of them than the classic sqrt(wp).
         int t = (int)(Math.Sqrt(wp) * 0.55) + 2;
         int wpi = wp + 2 * t + 48;
 
         long k = x.BinaryExponent - 1; // x = m * 2^k with m in [1, 2)
-        Real m = x.ShiftLeft(-k);
+        BigFloat m = x.ShiftLeft(-k);
         BigInt mf = m.ToFixed(wpi);
         BigInt one = BigInt.One << wpi;
 
@@ -334,17 +334,17 @@ public readonly partial struct Real
     }
 
     /// <summary>Base-2 logarithm (mpfr_log2).</summary>
-    public static Real Log2(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Log2(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
         => LogScaled(x, 2, precision, rounding);
 
     /// <summary>Base-10 logarithm (mpfr_log10).</summary>
-    public static Real Log10(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Log10(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
         => LogScaled(x, 10, precision, rounding);
 
-    private static Real LogScaled(Real x, int b, int precision, RealRounding rounding)
+    private static BigFloat LogScaled(BigFloat x, int b, int precision, RoundingMode rounding)
     {
         int prec = ResolvePrecision(precision, x.Precision);
-        Real? special = LogSpecial(x, prec);
+        BigFloat? special = LogSpecial(x, prec);
         if (special.HasValue)
         {
             return special.Value;
@@ -382,7 +382,7 @@ public readonly partial struct Real
     }
 
     /// <summary>ln(1+x) accurate near zero (mpfr_log1p): 2*atanh(x/(2+x)).</summary>
-    public static Real LogP1(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat LogP1(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
@@ -412,7 +412,7 @@ public readonly partial struct Real
                 // near ±1). Rounding 1 + x to wpi+160 bits perturbs the log by at most
                 // 2^-(wpi+160) absolute, below one ulp of LogStep's internal precision; the
                 // result is at least ln(3/2) in magnitude here.
-                Real y = Add(One, x, wpi + 160, RealRounding.NearestEven);
+                BigFloat y = Add(One, x, wpi + 160, RoundingMode.NearestEven);
                 (BigInt lm, long le, long lerr) = LogStep(y, wpi);
                 return (lm, le, lerr + 2);
             }

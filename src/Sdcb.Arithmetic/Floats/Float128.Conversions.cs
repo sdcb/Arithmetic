@@ -44,7 +44,7 @@ public readonly partial struct Float128
         return new(((UInt128)(uint)(m + ExponentBias) << 112) | f | SignBits(negative));
     }
 
-    private static Float128 FromUInt128(bool negative, UInt128 mag, RealRounding rounding)
+    private static Float128 FromUInt128(bool negative, UInt128 mag, RoundingMode rounding)
     {
         if (mag == 0)
         {
@@ -54,17 +54,17 @@ public readonly partial struct Float128
     }
 
     /// <summary>Converts an <see cref="Int128"/>, correctly rounded.</summary>
-    public static Float128 FromInt128(Int128 value, RealRounding rounding = RealRounding.NearestEven) =>
+    public static Float128 FromInt128(Int128 value, RoundingMode rounding = RoundingMode.NearestEven) =>
         Int128.IsNegative(value)
             ? FromUInt128(true, (UInt128)(-(value + 1)) + 1, rounding)
             : FromUInt128(false, (UInt128)value, rounding);
 
     /// <summary>Converts a <see cref="UInt128"/>, correctly rounded.</summary>
-    public static Float128 FromUInt128(UInt128 value, RealRounding rounding = RealRounding.NearestEven) =>
+    public static Float128 FromUInt128(UInt128 value, RoundingMode rounding = RoundingMode.NearestEven) =>
         FromUInt128(false, value, rounding);
 
     /// <summary>Converts a <see cref="BigInt"/>, correctly rounded (±∞ or ±MaxValue on overflow per mode).</summary>
-    public static Float128 FromBigInt(BigInt value, RealRounding rounding = RealRounding.NearestEven)
+    public static Float128 FromBigInt(BigInt value, RoundingMode rounding = RoundingMode.NearestEven)
     {
         if (value.IsZero)
         {
@@ -80,7 +80,7 @@ public readonly partial struct Float128
     }
 
     /// <summary>Converts a <see cref="BigRational"/>, correctly rounded.</summary>
-    public static Float128 FromRational(BigRational value, RealRounding rounding = RealRounding.NearestEven)
+    public static Float128 FromRational(BigRational value, RoundingMode rounding = RoundingMode.NearestEven)
     {
         BigInt num = value.Numerator;
         if (num.IsZero)
@@ -91,21 +91,21 @@ public readonly partial struct Float128
     }
 
     /// <summary>Converts a decimal, correctly rounded (a negative zero stays negative).</summary>
-    public static Float128 FromDecimal(decimal value, RealRounding rounding = RealRounding.NearestEven)
+    public static Float128 FromDecimal(decimal value, RoundingMode rounding = RoundingMode.NearestEven)
     {
         if (value == 0m)
         {
             return ZeroOf(decimal.IsNegative(value));
         }
-        return FromRational(Real.DecimalToRational(value), rounding);
+        return FromRational(BigFloat.DecimalToRational(value), rounding);
     }
 
-    /// <summary>Converts a <see cref="Real"/>, correctly rounded to binary128 (subnormals and overflow included).</summary>
-    public static Float128 FromReal(Real value, RealRounding rounding = RealRounding.NearestEven) =>
+    /// <summary>Converts a <see cref="BigFloat"/>, correctly rounded to binary128 (subnormals and overflow included).</summary>
+    public static Float128 FromBigFloat(BigFloat value, RoundingMode rounding = RoundingMode.NearestEven) =>
         new(value.ToBinary128Bits(rounding));
 
-    /// <summary>The exact value as a <see cref="Real"/> with 113 bits of precision (NaN and ±∞ map to their Real counterparts).</summary>
-    public Real ToReal() => Real.FromBinary128Bits(_bits, SignificandBits);
+    /// <summary>The exact value as a <see cref="BigFloat"/> with 113 bits of precision (NaN and ±∞ map to their BigFloat counterparts).</summary>
+    public BigFloat ToBigFloat() => BigFloat.FromBinary128Bits(_bits, SignificandBits);
 
     // ---------------------------------------------------------------
     // Implicit (exact) conversions
@@ -149,14 +149,14 @@ public readonly partial struct Float128
     public static explicit operator Float128(BigRational value) => FromRational(value);
 
     /// <summary>Correctly rounded (nearest-even), including subnormals and overflow.</summary>
-    public static explicit operator Float128(Real value) => FromReal(value);
+    public static explicit operator Float128(BigFloat value) => FromBigFloat(value);
 
     // ---------------------------------------------------------------
     // Conversions out of Float128
     // ---------------------------------------------------------------
 
-    /// <summary>Exact (113-bit <see cref="Real"/>).</summary>
-    public static implicit operator Real(Float128 value) => value.ToReal();
+    /// <summary>Exact (113-bit <see cref="BigFloat"/>).</summary>
+    public static implicit operator BigFloat(Float128 value) => value.ToBigFloat();
 
     /// <summary>Correctly rounded (nearest-even), including double subnormals and overflow to ±∞.</summary>
     public static explicit operator double(Float128 value) => value.ToDouble();
@@ -168,19 +168,19 @@ public readonly partial struct Float128
     public static explicit operator Half(Float128 value) => value.ToHalf();
 
     /// <summary>Converts to double with the given rounding.</summary>
-    public double ToDouble(RealRounding rounding = RealRounding.NearestEven) =>
+    public double ToDouble(RoundingMode rounding = RoundingMode.NearestEven) =>
         BitConverter.UInt64BitsToDouble(Narrow(_bits, 52, 11, rounding));
 
     /// <summary>Converts to float with the given rounding (one rounding step, no double rounding).</summary>
-    public float ToSingle(RealRounding rounding = RealRounding.NearestEven) =>
+    public float ToSingle(RoundingMode rounding = RoundingMode.NearestEven) =>
         BitConverter.UInt32BitsToSingle((uint)Narrow(_bits, 23, 8, rounding));
 
     /// <summary>Converts to <see cref="Half"/> with the given rounding (one rounding step, no double rounding).</summary>
-    public Half ToHalf(RealRounding rounding = RealRounding.NearestEven) =>
+    public Half ToHalf(RoundingMode rounding = RoundingMode.NearestEven) =>
         BitConverter.UInt16BitsToHalf((ushort)Narrow(_bits, 10, 5, rounding));
 
     /// <summary>Rounds a binary128 value to a narrower IEEE binary format and returns its bit pattern.</summary>
-    private static ulong Narrow(UInt128 bits, int fracBits, int expBits, RealRounding rounding)
+    private static ulong Narrow(UInt128 bits, int fracBits, int expBits, RoundingMode rounding)
     {
         bool sign = SignOf(bits);
         int exp = ExpOf(bits);
@@ -233,11 +233,11 @@ public readonly partial struct Float128
         }
         bool inc = rounding switch
         {
-            RealRounding.NearestEven => above || (half && (q & 1) != 0),
-            RealRounding.TowardZero => false,
-            RealRounding.TowardPositive => any && !sign,
-            RealRounding.TowardNegative => any && sign,
-            RealRounding.AwayFromZero => any,
+            RoundingMode.NearestEven => above || (half && (q & 1) != 0),
+            RoundingMode.TowardZero => false,
+            RoundingMode.TowardPositive => any && !sign,
+            RoundingMode.TowardNegative => any && sign,
+            RoundingMode.AwayFromZero => any,
             _ => throw new ArgumentOutOfRangeException(nameof(rounding)),
         };
         if (inc)
@@ -252,20 +252,20 @@ public readonly partial struct Float128
         return signOut | result;
     }
 
-    private static ulong NarrowHuge(bool negative, RealRounding rounding, ulong infOut)
+    private static ulong NarrowHuge(bool negative, RoundingMode rounding, ulong infOut)
     {
         bool toInf = rounding switch
         {
-            RealRounding.TowardZero => false,
-            RealRounding.TowardPositive => !negative,
-            RealRounding.TowardNegative => negative,
+            RoundingMode.TowardZero => false,
+            RoundingMode.TowardPositive => !negative,
+            RoundingMode.TowardNegative => negative,
             _ => true,
         };
         return toInf ? infOut : infOut - 1;
     }
 
     // ---------------------------------------------------------------
-    // To integers (truncation toward zero; OverflowException like Real for NaN, ±∞ and out-of-range values)
+    // To integers (truncation toward zero; OverflowException like BigFloat for NaN, ±∞ and out-of-range values)
     // ---------------------------------------------------------------
 
     /// <summary>|trunc(x)| when |x| &lt; 2^128 and x is finite; false otherwise.</summary>
@@ -351,14 +351,14 @@ public readonly partial struct Float128
             BigInt m = new(mag);
             return value.SignBit ? -m : m;
         }
-        return value.ToReal().ToBigInt();
+        return value.ToBigFloat().ToBigInt();
     }
 
     /// <summary>The exact value; throws <see cref="OverflowException"/> for NaN or infinity.</summary>
-    public static explicit operator BigRational(Float128 value) => value.ToReal().ToRational();
+    public static explicit operator BigRational(Float128 value) => value.ToBigFloat().ToRational();
 
     /// <summary>Nearest decimal (ties to even); throws <see cref="OverflowException"/> for NaN, infinity or out-of-range values.</summary>
-    public static explicit operator decimal(Float128 value) => value.ToReal().ToDecimal();
+    public static explicit operator decimal(Float128 value) => value.ToBigFloat().ToDecimal();
 
     // ---------------------------------------------------------------
     // Generic-math conversions
@@ -460,9 +460,9 @@ public readonly partial struct Float128
         {
             result = FromRational((BigRational)(object)value);
         }
-        else if (typeof(TOther) == typeof(Real))
+        else if (typeof(TOther) == typeof(BigFloat))
         {
-            result = FromReal((Real)(object)value);
+            result = FromBigFloat((BigFloat)(object)value);
         }
         else
         {
@@ -568,9 +568,9 @@ public readonly partial struct Float128
                 result = typeof(TOther) == typeof(BigInt) ? (TOther)(object)b : (TOther)(object)(BigInteger)b;
             }
         }
-        else if (typeof(TOther) == typeof(Real))
+        else if (typeof(TOther) == typeof(BigFloat))
         {
-            result = (TOther)(object)value.ToReal();
+            result = (TOther)(object)value.ToBigFloat();
         }
         else
         {
@@ -589,8 +589,8 @@ public readonly partial struct Float128
         }
         try
         {
-            // Rare: values just below 2^96 that round up to 2^96 overflow inside Real.ToDecimal.
-            result = value.ToReal().ToDecimal();
+            // Rare: values just below 2^96 that round up to 2^96 overflow inside BigFloat.ToDecimal.
+            result = value.ToBigFloat().ToDecimal();
             return true;
         }
         catch (OverflowException)

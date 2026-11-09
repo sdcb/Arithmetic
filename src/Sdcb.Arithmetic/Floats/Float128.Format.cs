@@ -473,12 +473,12 @@ public readonly partial struct Float128
     public static Float128 Parse(ReadOnlySpan<char> s, IFormatProvider? provider) => Parse(s, DefaultStyle, provider);
 
     public static Float128 Parse(ReadOnlySpan<char> s, NumberStyles style = DefaultStyle, IFormatProvider? provider = null) =>
-        TryParse(s, style, provider, RealRounding.NearestEven, out Float128 r)
+        TryParse(s, style, provider, RoundingMode.NearestEven, out Float128 r)
             ? r
             : throw new FormatException("The input string was not in a correct format for Float128.");
 
     /// <summary>Parses (invariant culture, <see cref="NumberStyles.Float"/> | AllowThousands) with the given rounding.</summary>
-    public static Float128 Parse(string s, RealRounding rounding)
+    public static Float128 Parse(string s, RoundingMode rounding)
     {
         ArgumentNullException.ThrowIfNull(s);
         return TryParse(s, DefaultStyle, CultureInfo.InvariantCulture, rounding, out Float128 r)
@@ -486,35 +486,35 @@ public readonly partial struct Float128
             : throw new FormatException("The input string was not in a correct format for Float128.");
     }
 
-    public static bool TryParse(string? s, out Float128 result) => TryParse(s.AsSpan(), DefaultStyle, null, RealRounding.NearestEven, out result);
+    public static bool TryParse(string? s, out Float128 result) => TryParse(s.AsSpan(), DefaultStyle, null, RoundingMode.NearestEven, out result);
 
-    public static bool TryParse(ReadOnlySpan<char> s, out Float128 result) => TryParse(s, DefaultStyle, null, RealRounding.NearestEven, out result);
+    public static bool TryParse(ReadOnlySpan<char> s, out Float128 result) => TryParse(s, DefaultStyle, null, RoundingMode.NearestEven, out result);
 
     public static bool TryParse(string? s, IFormatProvider? provider, out Float128 result) =>
-        TryParse(s.AsSpan(), DefaultStyle, provider, RealRounding.NearestEven, out result);
+        TryParse(s.AsSpan(), DefaultStyle, provider, RoundingMode.NearestEven, out result);
 
     public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, out Float128 result) =>
-        TryParse(s, DefaultStyle, provider, RealRounding.NearestEven, out result);
+        TryParse(s, DefaultStyle, provider, RoundingMode.NearestEven, out result);
 
     public static bool TryParse(string? s, NumberStyles style, IFormatProvider? provider, out Float128 result) =>
-        TryParse(s.AsSpan(), style, provider, RealRounding.NearestEven, out result);
+        TryParse(s.AsSpan(), style, provider, RoundingMode.NearestEven, out result);
 
     public static bool TryParse(ReadOnlySpan<char> s, NumberStyles style, IFormatProvider? provider, out Float128 result) =>
-        TryParse(s, style, provider, RealRounding.NearestEven, out result);
+        TryParse(s, style, provider, RoundingMode.NearestEven, out result);
 
     /// <summary>
     /// Parses a decimal number (culture symbols per <paramref name="provider"/>, NaN/Infinity symbols and the
     /// invariant nan/inf/infinity spellings), correctly rounded with <paramref name="rounding"/> from its exact value.
     /// Hex and binary specifiers are not supported.
     /// </summary>
-    public static bool TryParse(ReadOnlySpan<char> s, NumberStyles style, IFormatProvider? provider, RealRounding rounding, out Float128 result)
+    public static bool TryParse(ReadOnlySpan<char> s, NumberStyles style, IFormatProvider? provider, RoundingMode rounding, out Float128 result)
     {
         NumberText.ValidateStyle(style);
         if ((style & (NumberStyles.AllowHexSpecifier | NumberStyles.AllowBinarySpecifier)) != 0)
         {
             throw new ArgumentException("Hex and binary specifiers are not supported for Float128.", nameof(style));
         }
-        if ((uint)rounding > (uint)RealRounding.AwayFromZero)
+        if ((uint)rounding > (uint)RoundingMode.AwayFromZero)
         {
             throw new ArgumentOutOfRangeException(nameof(rounding));
         }
@@ -585,7 +585,7 @@ public readonly partial struct Float128
     }
 
     /// <summary>Parses the invariant form "[-]digits[.digits][e[-]digits]" produced by <see cref="NumberText.TryNormalize"/>.</summary>
-    private static bool TryParseNormalized(ReadOnlySpan<char> s, RealRounding rounding, out Float128 result)
+    private static bool TryParseNormalized(ReadOnlySpan<char> s, RoundingMode rounding, out Float128 result)
     {
         result = default;
         bool neg = false;
@@ -737,6 +737,6 @@ public readonly partial struct Float128
     public static bool TryParse(ReadOnlySpan<byte> utf8Text, NumberStyles style, IFormatProvider? provider, out Float128 result)
     {
         NumberText.ValidateStyle(style);
-        return NumberText.TryParseUtf8(utf8Text, (ReadOnlySpan<char> s, out Float128 r) => TryParse(s, style, provider, RealRounding.NearestEven, out r), out result);
+        return NumberText.TryParseUtf8(utf8Text, (ReadOnlySpan<char> s, out Float128 r) => TryParse(s, style, provider, RoundingMode.NearestEven, out r), out result);
     }
 }

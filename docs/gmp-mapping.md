@@ -31,28 +31,28 @@ These tables help when porting code written against GMP or MPFR.
 | `mpz_addmul`, `mpz_submul` | `BigInt.MultiplyAdd`, `BigInt.MultiplySubtract`; `BigInt.ModMultiply` for (a·b) mod m |
 | `mpz_urandomb/urandomm` | `BigInt.Random/RandomBelow` (any `System.Random`) |
 
-## `mpfr_*` → `Real`
+## `mpfr_*` → `BigFloat`
 
-Every function takes optional `precision` (bits) and `rounding` (`RealRounding`) arguments.
+Every function takes optional `precision` (bits) and `rounding` (`RoundingMode`) arguments.
 
 | MPFR | Sdcb.Arithmetic |
 |---|---|
-| `mpfr_add/sub/mul/div/sqr` | `Real.Add/Subtract/Multiply/Divide/Square` (and the operators) |
-| `mpfr_fma/fms` | `Real.FusedMultiplyAdd/FusedMultiplySubtract` |
-| `mpfr_sqrt/sqrt_ui/rec_sqrt/cbrt/rootn_si` | `Real.Sqrt` (also `ulong`), `ReciprocalSqrt`, `Cbrt`, `RootN` |
-| `mpfr_pow/pow_si/pow_z/powr/compound_si` | `Real.Pow` (`Real`, `long` or `BigInt` exponent), `Powr`, `Compound` |
-| `mpfr_log/log_ui/log2/log10/log1p` | `Real.Log` (also `ulong`), `Log2`, `Log10`, `LogP1` (+ `Log2P1`, `Log10P1`) |
-| `mpfr_exp/exp2/exp10/expm1` | `Real.Exp`, `Exp2`, `Exp10`, `ExpM1` (+ `Exp2M1`, `Exp10M1`) |
-| `mpfr_fmod/fmodquo` | `Real.TruncatedRemainder` (same as `%`), with `out long quotient` |
-| `mpfr_remainder/remquo` | `Real.Ieee754Remainder`, with `out long quotient` |
-| `mpfr_modf`, `mpfr_frexp`, `mpfr_frac` | `Real.Truncate(x, out fraction)`, `Real.Decompose(x, out exponent)`, `x.FractionalPart()` |
-| `mpfr_rint/round/roundeven` | `x.RoundToInteger(RealRounding)`, `Real.Round(x, MidpointRounding)` |
-| `mpfr_nextabove/nextbelow` | `Real.BitIncrement/BitDecrement` |
-| `mpfr_dim` | `Real.PositiveDifference` |
-| `mpfr_agm` | `Real.ArithmeticGeometricMean` |
-| `mpfr_lngamma/lgamma` | `Real.LogGamma(x)` / `Real.LogGamma(x, out int sign)` |
-| `mpfr_zeta/zeta_ui`, `mpfr_eint`, `mpfr_li2`, `mpfr_ai` | `Real.Zeta` (also `ulong`), `ExponentialIntegral`, `Dilogarithm`, `AiryAi` |
-| `mpfr_j0/j1/jn`, `mpfr_y0/y1/yn` | `Real.BesselJ(n, x)`, `Real.BesselY(n, x)` |
-| `mpfr_const_pi/log2/euler/catalan` | `Real.Pi`, `Ln2`, `EulerGamma`, `CatalanConstant` |
-| `mpfr_urandom/nrandom/erandom` | `Real.Random`, `RandomNormal`, `RandomExponential` |
-| `mpfr_set_d/get_d`, `mpfr_prec_round` | `Real.FromDouble` / `ToDouble`, `WithPrecision` |
+| `mpfr_add/sub/mul/div/sqr` | `BigFloat.Add/Subtract/Multiply/Divide/Square` (and the operators) |
+| `mpfr_fma/fms` | `BigFloat.FusedMultiplyAdd/FusedMultiplySubtract` |
+| `mpfr_sqrt/sqrt_ui/rec_sqrt/cbrt/rootn_si` | `BigFloat.Sqrt` (also `ulong`), `ReciprocalSqrt`, `Cbrt`, `RootN` |
+| `mpfr_pow/pow_si/pow_z/powr/compound_si` | `BigFloat.Pow` (`BigFloat`, `long` or `BigInt` exponent), `Powr`, `Compound` |
+| `mpfr_log/log_ui/log2/log10/log1p` | `BigFloat.Log` (also `ulong`), `Log2`, `Log10`, `LogP1` (+ `Log2P1`, `Log10P1`) |
+| `mpfr_exp/exp2/exp10/expm1` | `BigFloat.Exp`, `Exp2`, `Exp10`, `ExpM1` (+ `Exp2M1`, `Exp10M1`) |
+| `mpfr_fmod/fmodquo` | `BigFloat.TruncatedRemainder` (same as `%`), with `out long quotient` |
+| `mpfr_remainder/remquo` | `BigFloat.Ieee754Remainder`, with `out long quotient` |
+| `mpfr_modf`, `mpfr_frexp`, `mpfr_frac` | `BigFloat.Truncate(x, out fraction)`, `BigFloat.Decompose(x, out exponent)`, `x.FractionalPart()` |
+| `mpfr_rint/round/roundeven` | `x.RoundToInteger(RoundingMode)`, `BigFloat.Round(x, MidpointRounding)` |
+| `mpfr_nextabove/nextbelow` | `BigFloat.BitIncrement/BitDecrement` |
+| `mpfr_dim` | `BigFloat.PositiveDifference` |
+| `mpfr_agm` | `BigFloat.ArithmeticGeometricMean` |
+| `mpfr_lngamma/lgamma` | `BigFloat.LogGamma(x)` / `BigFloat.LogGamma(x, out int sign)` |
+| `mpfr_zeta/zeta_ui`, `mpfr_eint`, `mpfr_li2`, `mpfr_ai` | `BigFloat.Zeta` (also `ulong`), `ExponentialIntegral`, `Dilogarithm`, `AiryAi` |
+| `mpfr_j0/j1/jn`, `mpfr_y0/y1/yn` | `BigFloat.BesselJ(n, x)`, `BigFloat.BesselY(n, x)` |
+| `mpfr_const_pi/log2/euler/catalan` | `BigFloat.Pi`, `Ln2`, `EulerGamma`, `CatalanConstant` |
+| `mpfr_urandom/nrandom/erandom` | `BigFloat.Random`, `RandomNormal`, `RandomExponential` |
+| `mpfr_set_d/get_d`, `mpfr_prec_round` | `BigFloat.FromDouble` / `ToDouble`, `WithPrecision` |

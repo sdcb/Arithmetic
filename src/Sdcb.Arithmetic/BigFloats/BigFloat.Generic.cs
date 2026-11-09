@@ -12,90 +12,90 @@ namespace Sdcb.Arithmetic;
 /// results are correctly rounded to nearest-even. The bitwise operators required by
 /// <see cref="IBinaryNumber{TSelf}"/> are available only through the interface.
 /// </summary>
-public readonly partial struct Real :
-    IBinaryFloatingPointIeee754<Real>,
+public readonly partial struct BigFloat :
+    IBinaryFloatingPointIeee754<BigFloat>,
     IUtf8SpanFormattable,
-    IUtf8SpanParsable<Real>
+    IUtf8SpanParsable<BigFloat>
 {
-    private const RealRounding Rne = RealRounding.NearestEven;
+    private const RoundingMode Rne = RoundingMode.NearestEven;
 
-    static Real IAdditiveIdentity<Real, Real>.AdditiveIdentity => Zero;
-    static Real IMultiplicativeIdentity<Real, Real>.MultiplicativeIdentity => One;
-    static int INumberBase<Real>.Radix => 2;
+    static BigFloat IAdditiveIdentity<BigFloat, BigFloat>.AdditiveIdentity => Zero;
+    static BigFloat IMultiplicativeIdentity<BigFloat, BigFloat>.MultiplicativeIdentity => One;
+    static int INumberBase<BigFloat>.Radix => 2;
 
     /// <summary>-1 (the <see cref="ISignedNumber{TSelf}"/> name for <see cref="MinusOne"/>).</summary>
-    public static Real NegativeOne => MinusOne;
+    public static BigFloat NegativeOne => MinusOne;
 
     /// <summary>
     /// The smallest positive value at <see cref="DefaultPrecision"/> (BitIncrement(Zero)). Exponents
     /// are otherwise unbounded, so this is a conventional floor, not a hard underflow threshold.
     /// </summary>
-    public static Real Epsilon
+    public static BigFloat Epsilon
     {
         get
         {
             int p = DefaultPrecision;
-            return new Real(BigInt.One << (p - 1), EminUlp, p, Kind.Normal, negative: false);
+            return new BigFloat(BigInt.One << (p - 1), EminUlp, p, Kind.Normal, negative: false);
         }
     }
 
-    static Real IFloatingPointConstants<Real>.E => E();
-    static Real IFloatingPointConstants<Real>.Pi => Pi();
-    static Real IFloatingPointConstants<Real>.Tau => Tau();
-    static Real IBinaryNumber<Real>.AllBitsSet => NaN;
+    static BigFloat IFloatingPointConstants<BigFloat>.E => E();
+    static BigFloat IFloatingPointConstants<BigFloat>.Pi => Pi();
+    static BigFloat IFloatingPointConstants<BigFloat>.Tau => Tau();
+    static BigFloat IBinaryNumber<BigFloat>.AllBitsSet => NaN;
 
     /// <summary>2π, correctly rounded.</summary>
-    public static Real Tau(int precision = 0, RealRounding rounding = Rne) => Pi(precision, rounding).ShiftLeft(1);
+    public static BigFloat Tau(int precision = 0, RoundingMode rounding = Rne) => Pi(precision, rounding).ShiftLeft(1);
 
     // ---------------------------------------------------------------
     // INumberBase predicates
     // ---------------------------------------------------------------
 
-    static bool INumberBase<Real>.IsCanonical(Real value) => true;
-    static bool INumberBase<Real>.IsComplexNumber(Real value) => false;
-    static bool INumberBase<Real>.IsFinite(Real value) => value.IsFinite;
-    static bool INumberBase<Real>.IsImaginaryNumber(Real value) => false;
-    static bool INumberBase<Real>.IsInfinity(Real value) => value.IsInfinity;
-    static bool INumberBase<Real>.IsInteger(Real value) => value.IsInteger;
-    static bool INumberBase<Real>.IsNaN(Real value) => value.IsNaN;
-    static bool INumberBase<Real>.IsNegativeInfinity(Real value) => value.IsNegativeInfinity;
-    static bool INumberBase<Real>.IsPositiveInfinity(Real value) => value.IsPositiveInfinity;
-    static bool INumberBase<Real>.IsRealNumber(Real value) => !value.IsNaN;
-    static bool INumberBase<Real>.IsSubnormal(Real value) => false;
-    static bool INumberBase<Real>.IsZero(Real value) => value.IsZero;
+    static bool INumberBase<BigFloat>.IsCanonical(BigFloat value) => true;
+    static bool INumberBase<BigFloat>.IsComplexNumber(BigFloat value) => false;
+    static bool INumberBase<BigFloat>.IsFinite(BigFloat value) => value.IsFinite;
+    static bool INumberBase<BigFloat>.IsImaginaryNumber(BigFloat value) => false;
+    static bool INumberBase<BigFloat>.IsInfinity(BigFloat value) => value.IsInfinity;
+    static bool INumberBase<BigFloat>.IsInteger(BigFloat value) => value.IsInteger;
+    static bool INumberBase<BigFloat>.IsNaN(BigFloat value) => value.IsNaN;
+    static bool INumberBase<BigFloat>.IsNegativeInfinity(BigFloat value) => value.IsNegativeInfinity;
+    static bool INumberBase<BigFloat>.IsPositiveInfinity(BigFloat value) => value.IsPositiveInfinity;
+    static bool INumberBase<BigFloat>.IsRealNumber(BigFloat value) => !value.IsNaN;
+    static bool INumberBase<BigFloat>.IsSubnormal(BigFloat value) => false;
+    static bool INumberBase<BigFloat>.IsZero(BigFloat value) => value.IsZero;
 
     /// <summary>True when the sign bit is set (including -0, -∞).</summary>
-    public static bool IsNegative(Real value) => value.IsNeg;
+    public static bool IsNegative(BigFloat value) => value.IsNeg;
 
     /// <summary>True when the sign bit is clear (including +0, +∞).</summary>
-    public static bool IsPositive(Real value) => !value.IsNeg;
+    public static bool IsPositive(BigFloat value) => !value.IsNeg;
 
-    /// <summary>True for finite nonzero values (Real has no subnormals).</summary>
-    public static bool IsNormal(Real value) => value._kind == Kind.Normal;
+    /// <summary>True for finite nonzero values (BigFloat has no subnormals).</summary>
+    public static bool IsNormal(BigFloat value) => value._kind == Kind.Normal;
 
-    public static bool IsEvenInteger(Real value) =>
+    public static bool IsEvenInteger(BigFloat value) =>
         value._kind == Kind.Zero || (value.IsInteger && value._kind == Kind.Normal && !UnitBit(value));
 
-    public static bool IsOddInteger(Real value) =>
+    public static bool IsOddInteger(BigFloat value) =>
         value._kind == Kind.Normal && value.IsInteger && UnitBit(value);
 
-    private static bool UnitBit(Real v) => v._exp == 0 ? v._man.IsOdd : v._exp < 0 && v._man.TestBit(-v._exp);
+    private static bool UnitBit(BigFloat v) => v._exp == 0 ? v._man.IsOdd : v._exp < 0 && v._man.TestBit(-v._exp);
 
     /// <summary>True for positive powers of two.</summary>
-    public static bool IsPow2(Real value) => value._kind == Kind.Normal && !value.IsNeg && value._man.IsPowerOfTwo;
+    public static bool IsPow2(BigFloat value) => value._kind == Kind.Normal && !value.IsNeg && value._man.IsPowerOfTwo;
 
     // ---------------------------------------------------------------
     // INumber
     // ---------------------------------------------------------------
 
-    static int INumber<Real>.Sign(Real value) => value.Sign;
+    static int INumber<BigFloat>.Sign(BigFloat value) => value.Sign;
 
-    public static Real Abs(Real value) => value.Abs();
+    public static BigFloat Abs(BigFloat value) => value.Abs();
 
     /// <summary>The magnitude of value with the sign bit of sign.</summary>
-    public static Real CopySign(Real value, Real sign) => value.CopySign(sign);
+    public static BigFloat CopySign(BigFloat value, BigFloat sign) => value.CopySign(sign);
 
-    public static Real Clamp(Real value, Real min, Real max)
+    public static BigFloat Clamp(BigFloat value, BigFloat min, BigFloat max)
     {
         if (min > max || min.IsNaN || max.IsNaN)
         {
@@ -109,7 +109,7 @@ public readonly partial struct Real :
     }
 
     /// <summary>IEEE 754:2019 maximum: NaN if either argument is NaN; +0 &gt; -0.</summary>
-    static Real INumber<Real>.Max(Real x, Real y)
+    static BigFloat INumber<BigFloat>.Max(BigFloat x, BigFloat y)
     {
         if (x._kind == Kind.NaN)
         {
@@ -123,7 +123,7 @@ public readonly partial struct Real :
     }
 
     /// <summary>IEEE 754:2019 minimum: NaN if either argument is NaN; -0 &lt; +0.</summary>
-    static Real INumber<Real>.Min(Real x, Real y)
+    static BigFloat INumber<BigFloat>.Min(BigFloat x, BigFloat y)
     {
         if (x._kind == Kind.NaN)
         {
@@ -136,15 +136,15 @@ public readonly partial struct Real :
         return Min(x, y);
     }
 
-    /// <summary>IEEE 754:2019 maximumNumber (same as <see cref="Max(Real, Real)"/>): a number wins over NaN.</summary>
-    public static Real MaxNumber(Real x, Real y) => Max(x, y);
+    /// <summary>IEEE 754:2019 maximumNumber (same as <see cref="Max(BigFloat, BigFloat)"/>): a number wins over NaN.</summary>
+    public static BigFloat MaxNumber(BigFloat x, BigFloat y) => Max(x, y);
 
-    /// <summary>IEEE 754:2019 minimumNumber (same as <see cref="Min(Real, Real)"/>): a number wins over NaN.</summary>
-    public static Real MinNumber(Real x, Real y) => Min(x, y);
+    /// <summary>IEEE 754:2019 minimumNumber (same as <see cref="Min(BigFloat, BigFloat)"/>): a number wins over NaN.</summary>
+    public static BigFloat MinNumber(BigFloat x, BigFloat y) => Min(x, y);
 
-    private static int CompareMagnitude(Real x, Real y) => CompareValues(x.Abs(), y.Abs());
+    private static int CompareMagnitude(BigFloat x, BigFloat y) => CompareValues(x.Abs(), y.Abs());
 
-    public static Real MaxMagnitude(Real x, Real y)
+    public static BigFloat MaxMagnitude(BigFloat x, BigFloat y)
     {
         if (x.IsNaN)
         {
@@ -158,7 +158,7 @@ public readonly partial struct Real :
         return c > 0 ? x : c < 0 ? y : x.IsNeg ? y : x;
     }
 
-    public static Real MinMagnitude(Real x, Real y)
+    public static BigFloat MinMagnitude(BigFloat x, BigFloat y)
     {
         if (x.IsNaN)
         {
@@ -172,7 +172,7 @@ public readonly partial struct Real :
         return c < 0 ? x : c > 0 ? y : x.IsNeg ? x : y;
     }
 
-    public static Real MaxMagnitudeNumber(Real x, Real y)
+    public static BigFloat MaxMagnitudeNumber(BigFloat x, BigFloat y)
     {
         if (y.IsNaN)
         {
@@ -186,7 +186,7 @@ public readonly partial struct Real :
         return c > 0 ? x : c < 0 ? y : x.IsNeg ? y : x;
     }
 
-    public static Real MinMagnitudeNumber(Real x, Real y)
+    public static BigFloat MinMagnitudeNumber(BigFloat x, BigFloat y)
     {
         if (y.IsNaN)
         {
@@ -205,26 +205,26 @@ public readonly partial struct Real :
     // ---------------------------------------------------------------
 
     /// <summary>Truncated remainder with the sign of the dividend (like C# double %, mpfr_fmod).</summary>
-    public static Real operator %(Real a, Real b) => TruncatedRemainder(a, b);
+    public static BigFloat operator %(BigFloat a, BigFloat b) => TruncatedRemainder(a, b);
 
     /// <summary>value + 1 rounded to value's precision.</summary>
-    public static Real operator ++(Real value) => Add(value, One, value.Precision, Rne);
+    public static BigFloat operator ++(BigFloat value) => Add(value, One, value.Precision, Rne);
 
     /// <summary>value - 1 rounded to value's precision.</summary>
-    public static Real operator --(Real value) => Subtract(value, One, value.Precision, Rne);
+    public static BigFloat operator --(BigFloat value) => Subtract(value, One, value.Precision, Rne);
 
     // ---------------------------------------------------------------
     // Rounding (IFloatingPoint)
     // ---------------------------------------------------------------
 
-    public static Real Floor(Real x) => x.Floor();
-    public static Real Ceiling(Real x) => x.Ceiling();
-    public static Real Truncate(Real x) => x.Truncate();
+    public static BigFloat Floor(BigFloat x) => x.Floor();
+    public static BigFloat Ceiling(BigFloat x) => x.Ceiling();
+    public static BigFloat Truncate(BigFloat x) => x.Truncate();
 
     /// <summary>Nearest integer, ties to even.</summary>
-    public static Real Round(Real x) => x.RoundHalfEven();
+    public static BigFloat Round(BigFloat x) => x.RoundHalfEven();
 
-    public static Real Round(Real x, MidpointRounding mode) => mode switch
+    public static BigFloat Round(BigFloat x, MidpointRounding mode) => mode switch
     {
         MidpointRounding.ToEven => x.RoundHalfEven(),
         MidpointRounding.AwayFromZero => x.RoundHalfAway(),
@@ -234,13 +234,13 @@ public readonly partial struct Real :
         _ => throw new ArgumentException("Invalid MidpointRounding value.", nameof(mode)),
     };
 
-    public static Real Round(Real x, int digits) => Round(x, digits, MidpointRounding.ToEven);
+    public static BigFloat Round(BigFloat x, int digits) => Round(x, digits, MidpointRounding.ToEven);
 
     /// <summary>
     /// Rounds to <paramref name="digits"/> decimal places: the exact decimal rounding of x, then
     /// correctly rounded back to x's precision.
     /// </summary>
-    public static Real Round(Real x, int digits, MidpointRounding mode)
+    public static BigFloat Round(BigFloat x, int digits, MidpointRounding mode)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(digits);
         if (digits == 0)
@@ -265,14 +265,14 @@ public readonly partial struct Real :
     // IFloatingPointIeee754
     // ---------------------------------------------------------------
 
-    public static Real BitIncrement(Real x) => x.NextAbove();
-    public static Real BitDecrement(Real x) => x.NextBelow();
-    public static Real FusedMultiplyAdd(Real left, Real right, Real addend) => FusedMultiplyAdd(left, right, addend, 0, Rne);
-    public static Real Ieee754Remainder(Real left, Real right) => Ieee754Remainder(left, right, 0, Rne);
-    public static Real ScaleB(Real x, int n) => x.ShiftLeft(n);
+    public static BigFloat BitIncrement(BigFloat x) => x.NextAbove();
+    public static BigFloat BitDecrement(BigFloat x) => x.NextBelow();
+    public static BigFloat FusedMultiplyAdd(BigFloat left, BigFloat right, BigFloat addend) => FusedMultiplyAdd(left, right, addend, 0, Rne);
+    public static BigFloat Ieee754Remainder(BigFloat left, BigFloat right) => Ieee754Remainder(left, right, 0, Rne);
+    public static BigFloat ScaleB(BigFloat x, int n) => x.ShiftLeft(n);
 
     /// <summary>floor(log2|x|) clamped to int; int.MinValue for zero, int.MaxValue for NaN and infinity.</summary>
-    public static int ILogB(Real x) => x._kind switch
+    public static int ILogB(BigFloat x) => x._kind switch
     {
         Kind.Zero => int.MinValue,
         Kind.NaN or Kind.Inf => int.MaxValue,
@@ -285,28 +285,28 @@ public readonly partial struct Real :
 
     private long IeeeExponent => _kind == Kind.Normal ? BinaryExponent - 1 : 0;
 
-    int IFloatingPoint<Real>.GetExponentByteCount() => sizeof(long);
+    int IFloatingPoint<BigFloat>.GetExponentByteCount() => sizeof(long);
 
-    int IFloatingPoint<Real>.GetExponentShortestBitLength()
+    int IFloatingPoint<BigFloat>.GetExponentShortestBitLength()
     {
         long e = IeeeExponent;
         return e >= 0 ? 64 - BitOperations.LeadingZeroCount((ulong)e) : 65 - BitOperations.LeadingZeroCount((ulong)~e);
     }
 
-    int IFloatingPoint<Real>.GetSignificandBitLength() => Precision;
+    int IFloatingPoint<BigFloat>.GetSignificandBitLength() => Precision;
 
-    int IFloatingPoint<Real>.GetSignificandByteCount() => (Precision + 7) >> 3;
+    int IFloatingPoint<BigFloat>.GetSignificandByteCount() => (Precision + 7) >> 3;
 
-    bool IFloatingPoint<Real>.TryWriteExponentBigEndian(Span<byte> destination, out int bytesWritten) =>
+    bool IFloatingPoint<BigFloat>.TryWriteExponentBigEndian(Span<byte> destination, out int bytesWritten) =>
         TryWriteLong(destination, IeeeExponent, bigEndian: true, out bytesWritten);
 
-    bool IFloatingPoint<Real>.TryWriteExponentLittleEndian(Span<byte> destination, out int bytesWritten) =>
+    bool IFloatingPoint<BigFloat>.TryWriteExponentLittleEndian(Span<byte> destination, out int bytesWritten) =>
         TryWriteLong(destination, IeeeExponent, bigEndian: false, out bytesWritten);
 
-    bool IFloatingPoint<Real>.TryWriteSignificandBigEndian(Span<byte> destination, out int bytesWritten) =>
+    bool IFloatingPoint<BigFloat>.TryWriteSignificandBigEndian(Span<byte> destination, out int bytesWritten) =>
         TryWriteSignificand(destination, bigEndian: true, out bytesWritten);
 
-    bool IFloatingPoint<Real>.TryWriteSignificandLittleEndian(Span<byte> destination, out int bytesWritten) =>
+    bool IFloatingPoint<BigFloat>.TryWriteSignificandLittleEndian(Span<byte> destination, out int bytesWritten) =>
         TryWriteSignificand(destination, bigEndian: false, out bytesWritten);
 
     private static bool TryWriteLong(Span<byte> destination, long value, bool bigEndian, out int bytesWritten)
@@ -345,12 +345,12 @@ public readonly partial struct Real :
     // Bitwise operators (IBinaryNumber; interface-only)
     // ---------------------------------------------------------------
 
-    static Real IBitwiseOperators<Real, Real, Real>.operator &(Real left, Real right) => Bitwise(left, right, 0);
-    static Real IBitwiseOperators<Real, Real, Real>.operator |(Real left, Real right) => Bitwise(left, right, 1);
-    static Real IBitwiseOperators<Real, Real, Real>.operator ^(Real left, Real right) => Bitwise(left, right, 2);
+    static BigFloat IBitwiseOperators<BigFloat, BigFloat, BigFloat>.operator &(BigFloat left, BigFloat right) => Bitwise(left, right, 0);
+    static BigFloat IBitwiseOperators<BigFloat, BigFloat, BigFloat>.operator |(BigFloat left, BigFloat right) => Bitwise(left, right, 1);
+    static BigFloat IBitwiseOperators<BigFloat, BigFloat, BigFloat>.operator ^(BigFloat left, BigFloat right) => Bitwise(left, right, 2);
 
     /// <summary>Complements the significand bits within the value's precision window and flips the sign; NaN for NaN/∞.</summary>
-    static Real IBitwiseOperators<Real, Real, Real>.operator ~(Real value)
+    static BigFloat IBitwiseOperators<BigFloat, BigFloat, BigFloat>.operator ~(BigFloat value)
     {
         switch (value._kind)
         {
@@ -369,7 +369,7 @@ public readonly partial struct Real :
     /// Applies AND/OR/XOR to the exact binary expansions of |left| and |right| (aligned at the
     /// lowest significand bit) and to the sign bits, rounding to the larger precision.
     /// </summary>
-    private static Real Bitwise(Real a, Real b, int op)
+    private static BigFloat Bitwise(BigFloat a, BigFloat b, int op)
     {
         int prec = ResolvePrec(a, b, 0);
         if (a._kind is Kind.NaN or Kind.Inf || b._kind is Kind.NaN or Kind.Inf)
@@ -389,7 +389,7 @@ public readonly partial struct Real :
             {
                 return MakeZero(neg, prec);
             }
-            Real nz = az ? b : a;
+            BigFloat nz = az ? b : a;
             return Round(nz._man, nz._exp, sticky: false, neg, prec, Rne, out _);
         }
         // Disjoint bit ranges: AND is empty, OR/XOR are the exact sum.
@@ -400,7 +400,7 @@ public readonly partial struct Real :
             {
                 return MakeZero(neg, prec);
             }
-            Real s = Add(a.Abs(), b.Abs(), prec, Rne);
+            BigFloat s = Add(a.Abs(), b.Abs(), prec, Rne);
             return neg ? -s : s;
         }
         long e = Math.Min(a._exp, b._exp);
@@ -418,64 +418,64 @@ public readonly partial struct Real :
     // Single-argument function overloads (generic-math signatures)
     // ---------------------------------------------------------------
 
-    public static Real Sqrt(Real x) => Sqrt(x, 0, Rne);
-    public static Real Cbrt(Real x) => Cbrt(x, 0, Rne);
-    public static Real Hypot(Real x, Real y) => Hypot(x, y, 0, Rne);
-    public static Real RootN(Real x, int n) => RootN(x, (long)n, 0, Rne);
-    public static Real Pow(Real x, Real y) => Pow(x, y, 0, Rne);
+    public static BigFloat Sqrt(BigFloat x) => Sqrt(x, 0, Rne);
+    public static BigFloat Cbrt(BigFloat x) => Cbrt(x, 0, Rne);
+    public static BigFloat Hypot(BigFloat x, BigFloat y) => Hypot(x, y, 0, Rne);
+    public static BigFloat RootN(BigFloat x, int n) => RootN(x, (long)n, 0, Rne);
+    public static BigFloat Pow(BigFloat x, BigFloat y) => Pow(x, y, 0, Rne);
 
-    public static Real Exp(Real x) => Exp(x, 0, Rne);
-    public static Real ExpM1(Real x) => ExpM1(x, 0, Rne);
-    public static Real Exp2(Real x) => Exp2(x, 0, Rne);
-    public static Real Exp2M1(Real x) => Exp2M1(x, 0, Rne);
-    public static Real Exp10(Real x) => Exp10(x, 0, Rne);
-    public static Real Exp10M1(Real x) => Exp10M1(x, 0, Rne);
+    public static BigFloat Exp(BigFloat x) => Exp(x, 0, Rne);
+    public static BigFloat ExpM1(BigFloat x) => ExpM1(x, 0, Rne);
+    public static BigFloat Exp2(BigFloat x) => Exp2(x, 0, Rne);
+    public static BigFloat Exp2M1(BigFloat x) => Exp2M1(x, 0, Rne);
+    public static BigFloat Exp10(BigFloat x) => Exp10(x, 0, Rne);
+    public static BigFloat Exp10M1(BigFloat x) => Exp10M1(x, 0, Rne);
 
-    public static Real Log(Real x) => Log(x, 0, Rne);
-    public static Real LogP1(Real x) => LogP1(x, 0, Rne);
-    public static Real Log2(Real x) => Log2(x, 0, Rne);
-    public static Real Log2P1(Real x) => Log2P1(x, 0, Rne);
-    public static Real Log10(Real x) => Log10(x, 0, Rne);
-    public static Real Log10P1(Real x) => Log10P1(x, 0, Rne);
+    public static BigFloat Log(BigFloat x) => Log(x, 0, Rne);
+    public static BigFloat LogP1(BigFloat x) => LogP1(x, 0, Rne);
+    public static BigFloat Log2(BigFloat x) => Log2(x, 0, Rne);
+    public static BigFloat Log2P1(BigFloat x) => Log2P1(x, 0, Rne);
+    public static BigFloat Log10(BigFloat x) => Log10(x, 0, Rne);
+    public static BigFloat Log10P1(BigFloat x) => Log10P1(x, 0, Rne);
 
-    public static Real Sinh(Real x) => Sinh(x, 0, Rne);
-    public static Real Cosh(Real x) => Cosh(x, 0, Rne);
-    public static Real Tanh(Real x) => Tanh(x, 0, Rne);
-    public static Real Asinh(Real x) => Asinh(x, 0, Rne);
-    public static Real Acosh(Real x) => Acosh(x, 0, Rne);
-    public static Real Atanh(Real x) => Atanh(x, 0, Rne);
+    public static BigFloat Sinh(BigFloat x) => Sinh(x, 0, Rne);
+    public static BigFloat Cosh(BigFloat x) => Cosh(x, 0, Rne);
+    public static BigFloat Tanh(BigFloat x) => Tanh(x, 0, Rne);
+    public static BigFloat Asinh(BigFloat x) => Asinh(x, 0, Rne);
+    public static BigFloat Acosh(BigFloat x) => Acosh(x, 0, Rne);
+    public static BigFloat Atanh(BigFloat x) => Atanh(x, 0, Rne);
 
-    public static Real Sin(Real x) => Sin(x, 0, Rne);
-    public static Real Cos(Real x) => Cos(x, 0, Rne);
-    public static Real Tan(Real x) => Tan(x, 0, Rne);
-    public static Real Asin(Real x) => Asin(x, 0, Rne);
-    public static Real Acos(Real x) => Acos(x, 0, Rne);
-    public static Real Atan(Real x) => Atan(x, 0, Rne);
-    public static Real Atan2(Real y, Real x) => Atan2(y, x, 0, Rne);
-    public static Real SinPi(Real x) => SinPi(x, 0, Rne);
-    public static Real CosPi(Real x) => CosPi(x, 0, Rne);
-    public static Real TanPi(Real x) => TanPi(x, 0, Rne);
-    public static (Real Sin, Real Cos) SinCos(Real x) => SinCos(x, 0, Rne);
-    public static Real AsinPi(Real x) => AsinPi(x, 0, Rne);
-    public static Real AcosPi(Real x) => AcosPi(x, 0, Rne);
-    public static Real AtanPi(Real x) => AtanPi(x, 0, Rne);
-    public static Real Atan2Pi(Real y, Real x) => Atan2Pi(y, x, 0, Rne);
+    public static BigFloat Sin(BigFloat x) => Sin(x, 0, Rne);
+    public static BigFloat Cos(BigFloat x) => Cos(x, 0, Rne);
+    public static BigFloat Tan(BigFloat x) => Tan(x, 0, Rne);
+    public static BigFloat Asin(BigFloat x) => Asin(x, 0, Rne);
+    public static BigFloat Acos(BigFloat x) => Acos(x, 0, Rne);
+    public static BigFloat Atan(BigFloat x) => Atan(x, 0, Rne);
+    public static BigFloat Atan2(BigFloat y, BigFloat x) => Atan2(y, x, 0, Rne);
+    public static BigFloat SinPi(BigFloat x) => SinPi(x, 0, Rne);
+    public static BigFloat CosPi(BigFloat x) => CosPi(x, 0, Rne);
+    public static BigFloat TanPi(BigFloat x) => TanPi(x, 0, Rne);
+    public static (BigFloat Sin, BigFloat Cos) SinCos(BigFloat x) => SinCos(x, 0, Rne);
+    public static BigFloat AsinPi(BigFloat x) => AsinPi(x, 0, Rne);
+    public static BigFloat AcosPi(BigFloat x) => AcosPi(x, 0, Rne);
+    public static BigFloat AtanPi(BigFloat x) => AtanPi(x, 0, Rne);
+    public static BigFloat Atan2Pi(BigFloat y, BigFloat x) => Atan2Pi(y, x, 0, Rne);
 
     /// <summary>(sin(πx), cos(πx)), each correctly rounded.</summary>
-    public static (Real SinPi, Real CosPi) SinCosPi(Real x) => (SinPi(x), CosPi(x));
+    public static (BigFloat SinPi, BigFloat CosPi) SinCosPi(BigFloat x) => (SinPi(x), CosPi(x));
 
     // ---------------------------------------------------------------
     // New correctly rounded functions: asinpi/acospi/atanpi/atan2pi, degree conversion, log base b
     // ---------------------------------------------------------------
 
-    private static Real ExactDyadic(long numerator, int log2Den, bool negative, int prec, RealRounding rnd)
+    private static BigFloat ExactDyadic(long numerator, int log2Den, bool negative, int prec, RoundingMode rnd)
     {
-        Real r = Round(new BigInt(numerator), -log2Den, sticky: false, negative, prec, rnd, out _);
+        BigFloat r = Round(new BigInt(numerator), -log2Den, sticky: false, negative, prec, rnd, out _);
         return r;
     }
 
     /// <summary>asin(x)/π (mpfr_asinpi).</summary>
-    public static Real AsinPi(Real x, int precision = 0, RealRounding rounding = Rne)
+    public static BigFloat AsinPi(BigFloat x, int precision = 0, RoundingMode rounding = Rne)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         if (x._kind == Kind.NaN || x._kind == Kind.Inf)
@@ -499,7 +499,7 @@ public readonly partial struct Real :
     }
 
     /// <summary>acos(x)/π (mpfr_acospi).</summary>
-    public static Real AcosPi(Real x, int precision = 0, RealRounding rounding = Rne)
+    public static BigFloat AcosPi(BigFloat x, int precision = 0, RoundingMode rounding = Rne)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         if (x._kind == Kind.NaN || x._kind == Kind.Inf)
@@ -523,7 +523,7 @@ public readonly partial struct Real :
     }
 
     /// <summary>atan(x)/π (mpfr_atanpi).</summary>
-    public static Real AtanPi(Real x, int precision = 0, RealRounding rounding = Rne)
+    public static BigFloat AtanPi(BigFloat x, int precision = 0, RoundingMode rounding = Rne)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
@@ -543,7 +543,7 @@ public readonly partial struct Real :
     }
 
     /// <summary>atan2(y, x)/π (mpfr_atan2pi).</summary>
-    public static Real Atan2Pi(Real y, Real x, int precision = 0, RealRounding rounding = Rne)
+    public static BigFloat Atan2Pi(BigFloat y, BigFloat x, int precision = 0, RoundingMode rounding = Rne)
     {
         int prec = ResolvePrec(y, x, precision);
         if (y._kind == Kind.NaN || x._kind == Kind.NaN)
@@ -578,37 +578,37 @@ public readonly partial struct Real :
     }
 
     /// <summary>x·π/180, correctly rounded to x's precision.</summary>
-    public static Real DegreesToRadians(Real degrees)
+    public static BigFloat DegreesToRadians(BigFloat degrees)
     {
         int prec = degrees.Precision;
         if (degrees._kind != Kind.Normal)
         {
             return degrees;
         }
-        Real d180 = FromBigInt(180);
+        BigFloat d180 = FromBigInt(180);
         return Ziv(prec, Rne, wp => Approx(Divide(Multiply(degrees, Pi(wp + 8), wp + 8), d180, wp + 8), 4));
     }
 
     /// <summary>x·180/π, correctly rounded to x's precision.</summary>
-    public static Real RadiansToDegrees(Real radians)
+    public static BigFloat RadiansToDegrees(BigFloat radians)
     {
         int prec = radians.Precision;
         if (radians._kind != Kind.Normal)
         {
             return radians;
         }
-        Real d180 = FromBigInt(180);
+        BigFloat d180 = FromBigInt(180);
         return Ziv(prec, Rne, wp => Approx(Divide(Multiply(radians, d180, wp + 8), Pi(wp + 8), wp + 8), 4));
     }
 
     /// <summary>Logarithm of x in base newBase, correctly rounded to the larger precision.</summary>
-    public static Real Log(Real x, Real newBase) => Log(x, newBase, 0, Rne);
+    public static BigFloat Log(BigFloat x, BigFloat newBase) => Log(x, newBase, 0, Rne);
 
     /// <summary>Logarithm of x in base newBase (log(x)/log(newBase), correctly rounded).</summary>
-    public static Real Log(Real x, Real newBase, int precision, RealRounding rounding = Rne)
+    public static BigFloat Log(BigFloat x, BigFloat newBase, int precision, RoundingMode rounding = Rne)
     {
         int prec = ResolvePrec(x, newBase, precision);
-        Real b = newBase;
+        BigFloat b = newBase;
         if (x._kind != Kind.Normal || b._kind != Kind.Normal || x.IsNeg || b.IsNeg)
         {
             // Special values follow log(x)/log(b) with IEEE semantics.
@@ -632,7 +632,7 @@ public readonly partial struct Real :
             // log_{2^j}(2^i) = i / j exactly.
             return Divide(FromBigInt(x.BinaryExponent - 1), FromBigInt(b.BinaryExponent - 1), prec, rounding);
         }
-        if (TryExactIntegerLog(x, b, prec, rounding, out Real exact))
+        if (TryExactIntegerLog(x, b, prec, rounding, out BigFloat exact))
         {
             return exact;
         }
@@ -640,10 +640,10 @@ public readonly partial struct Real :
     }
 
     /// <summary>Detects x == b^k or b == x^k for small positive k, where Ziv's loop could not terminate.</summary>
-    private static bool TryExactIntegerLog(Real x, Real b, int prec, RealRounding rounding, out Real result)
+    private static bool TryExactIntegerLog(BigFloat x, BigFloat b, int prec, RoundingMode rounding, out BigFloat result)
     {
         result = default;
-        double lx = Math.Log2(Math.Abs(x.ToDouble(RealRounding.TowardZero))) , lb = Math.Log2(Math.Abs(b.ToDouble(RealRounding.TowardZero)));
+        double lx = Math.Log2(Math.Abs(x.ToDouble(RoundingMode.TowardZero))) , lb = Math.Log2(Math.Abs(b.ToDouble(RoundingMode.TowardZero)));
         if (!double.IsFinite(lx) || !double.IsFinite(lb) || lx == 0 || lb == 0)
         {
             return false;
@@ -670,14 +670,14 @@ public readonly partial struct Real :
         return false;
     }
 
-    private static bool IsExactPower(Real b, long k, Real target)
+    private static bool IsExactPower(BigFloat b, long k, BigFloat target)
     {
         long p = (long)b.Precision * k + 64;
         if (p > MaxPrecision)
         {
             return false;
         }
-        Real pw = Pow(b, k, (int)p, RealRounding.TowardZero);
+        BigFloat pw = Pow(b, k, (int)p, RoundingMode.TowardZero);
         return pw._kind == Kind.Normal && CompareValues(pw, target) == 0;
     }
 
@@ -686,24 +686,24 @@ public readonly partial struct Real :
     // ---------------------------------------------------------------
 
     /// <summary>Parses with .NET <see cref="NumberStyles"/> (hex/binary specifiers are not supported), rounding to DefaultPrecision.</summary>
-    public static Real Parse(ReadOnlySpan<char> s, NumberStyles style, IFormatProvider? provider) =>
-        TryParse(s, style, provider, out Real r) ? r : throw new FormatException("The value could not be parsed as a Real.");
+    public static BigFloat Parse(ReadOnlySpan<char> s, NumberStyles style, IFormatProvider? provider) =>
+        TryParse(s, style, provider, out BigFloat r) ? r : throw new FormatException("The value could not be parsed as a BigFloat.");
 
-    public static Real Parse(string s, NumberStyles style, IFormatProvider? provider)
+    public static BigFloat Parse(string s, NumberStyles style, IFormatProvider? provider)
     {
         ArgumentNullException.ThrowIfNull(s);
         return Parse(s.AsSpan(), style, provider);
     }
 
-    public static bool TryParse(string? s, NumberStyles style, IFormatProvider? provider, out Real result) =>
+    public static bool TryParse(string? s, NumberStyles style, IFormatProvider? provider, out BigFloat result) =>
         TryParse(s.AsSpan(), style, provider, out result);
 
-    public static bool TryParse(ReadOnlySpan<char> s, NumberStyles style, IFormatProvider? provider, out Real result)
+    public static bool TryParse(ReadOnlySpan<char> s, NumberStyles style, IFormatProvider? provider, out BigFloat result)
     {
         NumberText.ValidateStyle(style);
         if ((style & (NumberStyles.AllowHexSpecifier | NumberStyles.AllowBinarySpecifier)) != 0)
         {
-            throw new ArgumentException("Hex and binary specifiers are not supported for Real.", nameof(style));
+            throw new ArgumentException("Hex and binary specifiers are not supported for BigFloat.", nameof(style));
         }
         result = default;
         ReadOnlySpan<char> t = NumberText.TrimForSymbols(s, style);
@@ -741,15 +741,15 @@ public readonly partial struct Real :
     public bool TryFormat(Span<byte> utf8Destination, out int bytesWritten, ReadOnlySpan<char> format, IFormatProvider? provider) =>
         NumberText.TryWriteUtf8(ToString(), utf8Destination, out bytesWritten);
 
-    public static Real Parse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider) =>
-        TryParse(utf8Text, provider, out Real r) ? r : throw new FormatException("The value could not be parsed as a Real.");
+    public static BigFloat Parse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider) =>
+        TryParse(utf8Text, provider, out BigFloat r) ? r : throw new FormatException("The value could not be parsed as a BigFloat.");
 
-    public static bool TryParse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider, out Real result) =>
-        NumberText.TryParseUtf8(utf8Text, (ReadOnlySpan<char> s, out Real r) => TryParse(s, provider, out r), out result);
+    public static bool TryParse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider, out BigFloat result) =>
+        NumberText.TryParseUtf8(utf8Text, (ReadOnlySpan<char> s, out BigFloat r) => TryParse(s, provider, out r), out result);
 
-    public static Real Parse(ReadOnlySpan<byte> utf8Text, NumberStyles style, IFormatProvider? provider) =>
-        TryParse(utf8Text, style, provider, out Real r) ? r : throw new FormatException("The value could not be parsed as a Real.");
+    public static BigFloat Parse(ReadOnlySpan<byte> utf8Text, NumberStyles style, IFormatProvider? provider) =>
+        TryParse(utf8Text, style, provider, out BigFloat r) ? r : throw new FormatException("The value could not be parsed as a BigFloat.");
 
-    public static bool TryParse(ReadOnlySpan<byte> utf8Text, NumberStyles style, IFormatProvider? provider, out Real result) =>
-        NumberText.TryParseUtf8(utf8Text, (ReadOnlySpan<char> s, out Real r) => TryParse(s, style, provider, out r), out result);
+    public static bool TryParse(ReadOnlySpan<byte> utf8Text, NumberStyles style, IFormatProvider? provider, out BigFloat result) =>
+        NumberText.TryParseUtf8(utf8Text, (ReadOnlySpan<char> s, out BigFloat r) => TryParse(s, style, provider, out r), out result);
 }

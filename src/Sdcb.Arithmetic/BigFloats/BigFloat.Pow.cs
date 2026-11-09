@@ -2,14 +2,14 @@ using System.Diagnostics;
 
 namespace Sdcb.Arithmetic;
 
-public readonly partial struct Real
+public readonly partial struct BigFloat
 {
     // ---------------------------------------------------------------
     // Power functions (mpfr_pow, hypot, cbrt, rootn, rec_sqrt)
     // ---------------------------------------------------------------
 
     /// <summary>x^y correctly rounded (mpfr_pow), with the full IEEE 754 special-case table.</summary>
-    public static Real Pow(Real x, Real y, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Pow(BigFloat x, BigFloat y, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, Math.Max(x.Precision, y.Precision));
 
@@ -66,12 +66,12 @@ public readonly partial struct Real
         if (x.IsNeg)
         {
             // Huge odd/even integer exponents: |x|^y with sign from parity.
-            Real mag = PowExpLog(x.Abs(), y, prec, rounding, negResult: yOdd);
+            BigFloat mag = PowExpLog(x.Abs(), y, prec, rounding, negResult: yOdd);
             return mag;
         }
         // Algebraic exactness: y = n/2^d (dyadic); x^y is representable iff x is a
         // perfect 2^d-th power — detect and dispatch to the exact integer-power path.
-        Real? exact = TryPowExact(x, y, prec, rounding);
+        BigFloat? exact = TryPowExact(x, y, prec, rounding);
         if (exact.HasValue)
         {
             return exact.Value;
@@ -80,7 +80,7 @@ public readonly partial struct Real
     }
 
     /// <summary>Detects exactly-representable x^y for positive x and dyadic non-integer y.</summary>
-    private static Real? TryPowExact(Real x, Real y, int prec, RealRounding rounding)
+    private static BigFloat? TryPowExact(BigFloat x, BigFloat y, int prec, RoundingMode rounding)
     {
         Debug.Assert(x._kind == Kind.Normal && !x.IsNeg && y._kind == Kind.Normal);
         long tzY = y._man.IsEven ? y._man.TrailingZeroCount() : 0;
@@ -99,7 +99,7 @@ public readonly partial struct Real
             // x = 2^g: exact iff 2^d divides g*n (n odd ⇒ iff 2^d | g).
             if (d < 63 && (g & ((1L << (int)d) - 1)) == 0)
             {
-                Real b2 = RoundPow2(g >> (int)d, negative: false, MinPrecision + 62, RealRounding.NearestEven);
+                BigFloat b2 = RoundPow2(g >> (int)d, negative: false, MinPrecision + 62, RoundingMode.NearestEven);
                 return PowIntOfDyadicRoot(b2, nOdd, y.IsNeg, prec, rounding);
             }
             return null;
@@ -118,11 +118,11 @@ public readonly partial struct Real
             }
         }
         int rp = (int)Math.Max(MinPrecision, root.GetBitLength());
-        Real rootReal = Round(root, g >> (int)d, sticky: false, negative: false, rp, RealRounding.NearestEven, out _);
-        return PowIntOfDyadicRoot(rootReal, nOdd, y.IsNeg, prec, rounding);
+        BigFloat rootBigFloat = Round(root, g >> (int)d, sticky: false, negative: false, rp, RoundingMode.NearestEven, out _);
+        return PowIntOfDyadicRoot(rootBigFloat, nOdd, y.IsNeg, prec, rounding);
     }
 
-    private static Real? PowIntOfDyadicRoot(Real root, BigInt n, bool negativeExp, int prec, RealRounding rounding)
+    private static BigFloat? PowIntOfDyadicRoot(BigFloat root, BigInt n, bool negativeExp, int prec, RoundingMode rounding)
     {
         if (n.GetBitLength() > 40)
         {
@@ -133,7 +133,7 @@ public readonly partial struct Real
     }
 
     /// <summary>x^n for a machine integer n via squaring under Ziv (mpfr_pow_si).</summary>
-    public static Real Pow(Real x, long n, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Pow(BigFloat x, long n, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         if (n == 0)
@@ -241,20 +241,20 @@ public readonly partial struct Real
     }
 
     /// <summary>Rounds ±2^k to the requested precision.</summary>
-    private static Real RoundPow2(long k, bool negative, int prec, RealRounding rounding)
+    private static BigFloat RoundPow2(long k, bool negative, int prec, RoundingMode rounding)
         => Round(BigInt.One, k, sticky: false, negative, prec, rounding, out _);
 
     /// <summary>General positive-base power via exp(y ln x).</summary>
-    private static Real PowExpLog(Real x, Real y, int prec, RealRounding rounding, bool negResult)
+    private static BigFloat PowExpLog(BigFloat x, BigFloat y, int prec, RoundingMode rounding, bool negResult)
     {
         Debug.Assert(x._kind == Kind.Normal && !x.IsNeg);
         return Ziv(prec, rounding, wp =>
         {
             int wpi = wp + 96;
             (BigInt lm, long le, long lerr) = LogStep(x, wpi);
-            // z = y * ln x as a Real at high precision.
-            Real lnx = lm.IsZero ? MakeZero(negative: false, wpi) : Round(lm.Abs(), le, sticky: true, lm.Sign < 0, wpi, RealRounding.NearestEven, out _);
-            Real z = Multiply(y, lnx, wpi, RealRounding.NearestEven);
+            // z = y * ln x as a BigFloat at high precision.
+            BigFloat lnx = lm.IsZero ? MakeZero(negative: false, wpi) : Round(lm.Abs(), le, sticky: true, lm.Sign < 0, wpi, RoundingMode.NearestEven, out _);
+            BigFloat z = Multiply(y, lnx, wpi, RoundingMode.NearestEven);
             if (z._kind != Kind.Normal)
             {
                 return (BigInt.One << wp, -wp, 8); // y*lnx ≈ 0 → 1
@@ -274,7 +274,7 @@ public readonly partial struct Real
     }
 
     /// <summary>sqrt(x² + y²) without intermediate overflow (mpfr_hypot).</summary>
-    public static Real Hypot(Real x, Real y, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Hypot(BigFloat x, BigFloat y, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, Math.Max(x.Precision, y.Precision));
         if (x._kind == Kind.Inf || y._kind == Kind.Inf)
@@ -313,7 +313,7 @@ public readonly partial struct Real
     }
 
     /// <summary>Exact-path hypot: correctly rounded from the exact sum of squares.</summary>
-    private static Real HypotExact(Real x, Real y, int prec, RealRounding rounding)
+    private static BigFloat HypotExact(BigFloat x, BigFloat y, int prec, RoundingMode rounding)
     {
         long e0 = 2 * Math.Min(x._exp, y._exp);
         BigInt sum = x._man.Square().ShiftLeft(2 * x._exp - e0) + y._man.Square().ShiftLeft(2 * y._exp - e0);
@@ -328,11 +328,11 @@ public readonly partial struct Real
     }
 
     /// <summary>Cube root, defined for negative arguments (mpfr_cbrt).</summary>
-    public static Real Cbrt(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Cbrt(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
         => RootN(x, 3, precision, rounding);
 
     /// <summary>k-th root (mpfr_rootn_ui): negative x allowed for odd k.</summary>
-    public static Real RootN(Real x, uint k, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat RootN(BigFloat x, uint k, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         ArgumentOutOfRangeException.ThrowIfZero(k);
         int prec = ResolvePrecision(precision, x.Precision);
@@ -375,7 +375,7 @@ public readonly partial struct Real
     }
 
     /// <summary>1/sqrt(x) correctly rounded (mpfr_rec_sqrt).</summary>
-    public static Real ReciprocalSqrt(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat ReciprocalSqrt(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)

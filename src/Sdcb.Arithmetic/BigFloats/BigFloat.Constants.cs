@@ -2,7 +2,7 @@ using System.Diagnostics;
 
 namespace Sdcb.Arithmetic;
 
-public readonly partial struct Real
+public readonly partial struct BigFloat
 {
     // ---------------------------------------------------------------
     // Mathematical constants with per-precision caching
@@ -20,7 +20,7 @@ public readonly partial struct Real
     private static int s_eBits;
 
     /// <summary>π correctly rounded to the given precision (mpfr_const_pi).</summary>
-    public static Real Pi(int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Pi(int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, DefaultPrecision);
         return Ziv(prec, rounding, wp =>
@@ -31,14 +31,14 @@ public readonly partial struct Real
     }
 
     /// <summary>ln 2 correctly rounded (mpfr_const_log2).</summary>
-    public static Real Ln2(int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Ln2(int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, DefaultPrecision);
         return Ziv(prec, rounding, wp => (Ln2Fixed(wp), (long)-wp, 64));
     }
 
     /// <summary>EulerGamma's number e correctly rounded.</summary>
-    public static Real E(int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat E(int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, DefaultPrecision);
         return Ziv(prec, rounding, wp => (EFixed(wp), (long)-wp, 64));
@@ -192,9 +192,9 @@ public readonly partial struct Real
         int p = wp + 32;
         long n = (long)(wp / 47.11) + 2;
         (_, BigInt q, BigInt t) = ChudnovskySplit(0, n, needP: false);
-        Real r = Divide(FromBigInt(q, 0, p), FromBigInt(t, 0, p), p);
-        Real s = Sqrt(FromBigInt(10005, 0, p), p);
-        Real pi = Multiply(Multiply(r, s, p), FromBigInt(426880, 0, p), p);
+        BigFloat r = Divide(FromBigInt(q, 0, p), FromBigInt(t, 0, p), p);
+        BigFloat s = Sqrt(FromBigInt(10005, 0, p), p);
+        BigFloat pi = Multiply(Multiply(r, s, p), FromBigInt(426880, 0, p), p);
         return pi.ToFixed(wp);
     }
 

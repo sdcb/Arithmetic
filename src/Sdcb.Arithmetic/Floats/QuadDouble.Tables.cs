@@ -2,8 +2,8 @@ namespace Sdcb.Arithmetic;
 
 public readonly partial struct QuadDouble
 {
-    // Tables generated from Real at 800 bits (each entry is the correctly rounded value split by
-    // successive nearest-double extraction); QuadDoubleTests verifies them against Real.
+    // Tables generated from BigFloat at 800 bits (each entry is the correctly rounded value split by
+    // successive nearest-double extraction); QuadDoubleTests verifies them against BigFloat.
 
     /// <summary>ln 2 as five doubles (about 265 bits) for exact argument reduction k·ln 2.</summary>
     private static ReadOnlySpan<double> Ln2Parts => [0.6931471805599453, 2.3190468138462996E-17, 5.707708438416212E-34, -3.5824322106018114E-50, -1.352169675798863E-66];

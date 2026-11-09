@@ -15,7 +15,7 @@ namespace Sdcb.Arithmetic;
 /// 2^-102, square root about 2^-104) and transcendental functions are accurate to about 2^-100
 /// over their usual ranges. There is no subnormal double-double range: below ~2^-969 the low
 /// word underflows and precision degrades towards that of <see cref="double"/>. Use
-/// <see cref="Real"/> when correct rounding or a wider exponent range is required.
+/// <see cref="BigFloat"/> when correct rounding or a wider exponent range is required.
 /// </para>
 /// </summary>
 public readonly partial struct DoubleDouble :

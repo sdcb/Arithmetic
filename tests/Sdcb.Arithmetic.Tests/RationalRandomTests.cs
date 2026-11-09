@@ -101,7 +101,7 @@ public class RandomTests
         for (int i = 0; i < 100; i++)
         {
             Assert.Equal(BigInt.Random(r1, 300), BigInt.Random(r2, 300));
-            Assert.Equal(Real.Random(r1, 200), Real.Random(r2, 200));
+            Assert.Equal(BigFloat.Random(r1, 200), BigFloat.Random(r2, 200));
         }
     }
 
@@ -132,20 +132,20 @@ public class RandomTests
     }
 
     [Fact]
-    public void RealRandom_Distributions()
+    public void BigFloatRandom_Distributions()
     {
         var r = new Random(3);
         double sumU = 0, sumN = 0, sumE = 0;
         const int N = 2000;
         for (int i = 0; i < N; i++)
         {
-            Real u = Real.Random(r, 100, RealRounding.TowardZero);
-            Assert.True(u >= Real.Zero && u < Real.One);
+            BigFloat u = BigFloat.Random(r, 100, RoundingMode.TowardZero);
+            Assert.True(u >= BigFloat.Zero && u < BigFloat.One);
             Assert.Equal(100, u.Precision);
-            Real e = Real.RandomExponential(r, 80);
-            Assert.True(e >= Real.Zero);
+            BigFloat e = BigFloat.RandomExponential(r, 80);
+            Assert.True(e >= BigFloat.Zero);
             sumU += u.ToDouble();
-            sumN += Real.RandomNormal(r, 80).ToDouble();
+            sumN += BigFloat.RandomNormal(r, 80).ToDouble();
             sumE += e.ToDouble();
         }
         Assert.InRange(sumU / N, 0.45, 0.55);

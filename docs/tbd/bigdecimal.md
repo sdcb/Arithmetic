@@ -10,7 +10,7 @@
 |---|---|---|
 | `decimal`（.NET 10 及以前） | ✓ | 固定 28–29 位 |
 | `Decimal128`（.NET 11，IEEE 754 decimal128） | ✓ | 固定 34 位 |
-| `Real` | ✗（二进制，0.1 不精确） | 任意 |
+| `BigFloat` | ✗（二进制，0.1 不精确） | 任意 |
 | `BigRational` | ✓ | 任意，但没有"小数位数"概念，1/3 这种结果会让分母不断膨胀 |
 | **`BigDecimal`** | **✓** | **任意** |
 
@@ -26,7 +26,7 @@
 - 表示：`BigInt` 未缩放值 + `int` 小数位数（scale）。加、减、乘、比较直接调用 `BigInt`。
 - 除法/舍入：`BigInt.DivRem` + 十进制舍入规则（HalfUp、HalfEven、HalfDown、Up、Down、Ceiling、Floor，以及"不精确就抛异常"）。
 - 乘以 10^k 复用已缓存的幂表（`PowerTable`）；Parse/ToString 复用现有的分治实现。
-- 与 `decimal`、`double`、`BigRational`、`Real`、`Decimal128` 的互转都是现成能力的组合。
+- 与 `decimal`、`double`、`BigRational`、`BigFloat`、`Decimal128` 的互转都是现成能力的组合。
 
 ## 建议的 MVP 范围
 
@@ -36,7 +36,7 @@
 4. `Round`、`SetScale`、`StripTrailingZeros`；普通写法与科学计数法的 `ToString` / `Parse`。
 5. 接入泛型数学（`INumber<BigDecimal>`），与现有三种类型互转。
 6. **相等语义按值比较**，即 `1.0 == 1.00`，避开 Java `equals` 同时比较 scale 的老坑；scale 单独暴露为属性。
-7. 超越函数（exp/log/sin 等）暂不做（Java 到 9 才加 sqrt）。以后可以用 `Real` 计算再按十进制正确舍入，但要处理二进制转十进制恰好落在舍入边界的情况，需要 Ziv 式的方法，不简单。
+7. 超越函数（exp/log/sin 等）暂不做（Java 到 9 才加 sqrt）。以后可以用 `BigFloat` 计算再按十进制正确舍入，但要处理二进制转十进制恰好落在舍入边界的情况，需要 Ziv 式的方法，不简单。
 
 ## 对照基准
 

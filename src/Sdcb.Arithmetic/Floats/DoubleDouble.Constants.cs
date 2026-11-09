@@ -3,8 +3,8 @@ namespace Sdcb.Arithmetic;
 public readonly partial struct DoubleDouble
 {
     // ---------------------------------------------------------------
-    // Hard-coded constants: each (C0, C1[, C2]) is the greedy split of the 500-bit Real value
-    // (C0 = RN(v), C1 = RN(v - C0), ...), generated with Real and checked by the unit tests.
+    // Hard-coded constants: each (C0, C1[, C2]) is the greedy split of the 500-bit BigFloat value
+    // (C0 = RN(v), C1 = RN(v - C0), ...), generated with BigFloat and checked by the unit tests.
     // ---------------------------------------------------------------
 
     internal const double Pi0 = 3.141592653589793;

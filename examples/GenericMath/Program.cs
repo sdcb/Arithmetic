@@ -1,4 +1,4 @@
-// One piece of generic code, many number types: BigInt, BigRational and Real implement the
+// One piece of generic code, many number types: BigInt, BigRational and BigFloat implement the
 // .NET generic math interfaces, so they drop into the same algorithms as int/long/double.
 // Usage: dotnet run --project examples/GenericMath
 using System.Numerics;
@@ -7,7 +7,7 @@ using Sdcb.Arithmetic.Examples;
 
 PerfWarning.Print();
 
-Real.DefaultPrecision = 256;
+BigFloat.DefaultPrecision = 256;
 
 Console.WriteLine("1. Factorial(30) with IBinaryInteger<T>");
 Console.WriteLine($"   long   : {TryFactorial<long>(30)}");
@@ -19,21 +19,21 @@ for (int i = 1; i <= 5; i++)
 {
     Console.WriteLine($"   step {i}: BigRational {NewtonSqrt2<BigRational>(i),-28} double {NewtonSqrt2<double>(i):R}");
 }
-Real r = NewtonSqrt2<Real>(9);
-Console.WriteLine($"   Real after 9 steps : {r.ToString(70)}");
-Console.WriteLine($"   error vs Real.Sqrt : {Real.Abs(r - Real.Sqrt(2)).ToString(3)}");
+BigFloat r = NewtonSqrt2<BigFloat>(9);
+Console.WriteLine($"   BigFloat after 9 steps : {r.ToString(70)}");
+Console.WriteLine($"   error vs BigFloat.Sqrt : {BigFloat.Abs(r - BigFloat.Sqrt(2)).ToString(3)}");
 
 Console.WriteLine();
 Console.WriteLine("3. (1 + 1/n)^n → e for n = 10^15 with IPowerFunctions<T>");
 Console.WriteLine($"   double : {CompoundE<double>(1e15):R}   (1 + 1e-15 already lost most of its digits)");
-Console.WriteLine($"   Real   : {CompoundE<Real>(BigInt.Pow(10, 15)).ToString(20)}");
-Console.WriteLine($"   e      : {Real.Exp(1).ToString(20)}  ((1 + 1/n)^n itself is below e by ≈ e/(2n) ≈ 1.4e-15)");
+Console.WriteLine($"   BigFloat   : {CompoundE<BigFloat>(BigInt.Pow(10, 15)).ToString(20)}");
+Console.WriteLine($"   e      : {BigFloat.Exp(1).ToString(20)}  ((1 + 1/n)^n itself is below e by ≈ e/(2n) ≈ 1.4e-15)");
 Console.WriteLine();
 Console.WriteLine("4. Conversions between types go through INumberBase<T>.CreateXxx");
-Real third = Real.FromRational(new BigRational(1, 3));
-Console.WriteLine($"   double.CreateChecked(Real 1/3)       : {double.CreateChecked(third):R}");
-Console.WriteLine($"   int.CreateSaturating(Real +∞)        : {int.CreateSaturating(Real.PositiveInfinity)}");
-Console.WriteLine($"   BigInt.CreateTruncating(Real 1e30+.5): {BigInt.CreateTruncating(Real.Parse("1e30") + Real.Half)}");
+BigFloat third = BigFloat.FromRational(new BigRational(1, 3));
+Console.WriteLine($"   double.CreateChecked(BigFloat 1/3)       : {double.CreateChecked(third):R}");
+Console.WriteLine($"   int.CreateSaturating(BigFloat +∞)        : {int.CreateSaturating(BigFloat.PositiveInfinity)}");
+Console.WriteLine($"   BigInt.CreateTruncating(BigFloat 1e30+.5): {BigInt.CreateTruncating(BigFloat.Parse("1e30") + BigFloat.Half)}");
 
 // n! computed with checked arithmetic: overflows for fixed-width integers, never for BigInt.
 static string TryFactorial<T>(int n) where T : IBinaryInteger<T>

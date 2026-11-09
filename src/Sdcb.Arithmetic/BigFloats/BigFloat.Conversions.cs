@@ -3,78 +3,78 @@ using System.Numerics;
 
 namespace Sdcb.Arithmetic;
 
-public readonly partial struct Real
+public readonly partial struct BigFloat
 {
     // ---------------------------------------------------------------
     // Implicit (exact) conversions. Integers get max(DefaultPrecision, bit length) bits;
     // binary floating-point values get max(DefaultPrecision, their significand width).
     // ---------------------------------------------------------------
 
-    public static implicit operator Real(sbyte value) => FromBigInt(value);
-    public static implicit operator Real(byte value) => FromBigInt(value);
-    public static implicit operator Real(short value) => FromBigInt(value);
-    public static implicit operator Real(ushort value) => FromBigInt(value);
-    public static implicit operator Real(char value) => FromBigInt(value);
-    public static implicit operator Real(int value) => FromBigInt(value);
-    public static implicit operator Real(uint value) => FromBigInt(value);
-    public static implicit operator Real(long value) => FromBigInt(value);
-    public static implicit operator Real(ulong value) => FromBigInt(value);
-    public static implicit operator Real(nint value) => FromBigInt(value);
-    public static implicit operator Real(nuint value) => FromBigInt(value);
-    public static implicit operator Real(Int128 value) => FromBigInt(value);
-    public static implicit operator Real(UInt128 value) => FromBigInt(value);
-    public static implicit operator Real(BigInt value) => FromBigInt(value);
-    public static implicit operator Real(BigInteger value) => FromBigInt(value);
-    public static implicit operator Real(System.Half value) => FromDouble((double)value, Math.Max(DefaultPrecision, 11));
-    public static implicit operator Real(float value) => FromDouble(value, Math.Max(DefaultPrecision, 24));
-    public static implicit operator Real(double value) => FromDouble(value, Math.Max(DefaultPrecision, 53));
+    public static implicit operator BigFloat(sbyte value) => FromBigInt(value);
+    public static implicit operator BigFloat(byte value) => FromBigInt(value);
+    public static implicit operator BigFloat(short value) => FromBigInt(value);
+    public static implicit operator BigFloat(ushort value) => FromBigInt(value);
+    public static implicit operator BigFloat(char value) => FromBigInt(value);
+    public static implicit operator BigFloat(int value) => FromBigInt(value);
+    public static implicit operator BigFloat(uint value) => FromBigInt(value);
+    public static implicit operator BigFloat(long value) => FromBigInt(value);
+    public static implicit operator BigFloat(ulong value) => FromBigInt(value);
+    public static implicit operator BigFloat(nint value) => FromBigInt(value);
+    public static implicit operator BigFloat(nuint value) => FromBigInt(value);
+    public static implicit operator BigFloat(Int128 value) => FromBigInt(value);
+    public static implicit operator BigFloat(UInt128 value) => FromBigInt(value);
+    public static implicit operator BigFloat(BigInt value) => FromBigInt(value);
+    public static implicit operator BigFloat(BigInteger value) => FromBigInt(value);
+    public static implicit operator BigFloat(System.Half value) => FromDouble((double)value, Math.Max(DefaultPrecision, 11));
+    public static implicit operator BigFloat(float value) => FromDouble(value, Math.Max(DefaultPrecision, 24));
+    public static implicit operator BigFloat(double value) => FromDouble(value, Math.Max(DefaultPrecision, 53));
 
     // ---------------------------------------------------------------
     // Explicit (rounding) conversions
     // ---------------------------------------------------------------
 
     /// <summary>Rounds the decimal to DefaultPrecision bits (nearest-even).</summary>
-    public static explicit operator Real(decimal value) => FromDecimal(value);
+    public static explicit operator BigFloat(decimal value) => FromDecimal(value);
 
     /// <summary>Rounds the rational to DefaultPrecision bits (nearest-even).</summary>
-    public static explicit operator Real(BigRational value) => FromRational(value);
+    public static explicit operator BigFloat(BigRational value) => FromRational(value);
 
     /// <summary>A decimal correctly rounded to the given precision.</summary>
-    public static Real FromDecimal(decimal value, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat FromDecimal(decimal value, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
-        Real r = FromRational(DecimalToRational(value), precision, rounding);
+        BigFloat r = FromRational(DecimalToRational(value), precision, rounding);
         return r.IsZero && decimal.IsNegative(value) ? -r : r;
     }
 
-    public static explicit operator sbyte(Real value) => (sbyte)value.TruncateForInteger();
-    public static explicit operator byte(Real value) => (byte)value.TruncateForInteger();
-    public static explicit operator short(Real value) => (short)value.TruncateForInteger();
-    public static explicit operator ushort(Real value) => (ushort)value.TruncateForInteger();
-    public static explicit operator char(Real value) => (char)value.TruncateForInteger();
-    public static explicit operator int(Real value) => (int)value.TruncateForInteger();
-    public static explicit operator uint(Real value) => (uint)value.TruncateForInteger();
-    public static explicit operator long(Real value) => (long)value.TruncateForInteger();
-    public static explicit operator ulong(Real value) => (ulong)value.TruncateForInteger();
-    public static explicit operator nint(Real value) => (nint)value.TruncateForInteger();
-    public static explicit operator nuint(Real value) => (nuint)value.TruncateForInteger();
-    public static explicit operator Int128(Real value) => (Int128)value.TruncateForInteger();
-    public static explicit operator UInt128(Real value) => (UInt128)value.TruncateForInteger();
+    public static explicit operator sbyte(BigFloat value) => (sbyte)value.TruncateForInteger();
+    public static explicit operator byte(BigFloat value) => (byte)value.TruncateForInteger();
+    public static explicit operator short(BigFloat value) => (short)value.TruncateForInteger();
+    public static explicit operator ushort(BigFloat value) => (ushort)value.TruncateForInteger();
+    public static explicit operator char(BigFloat value) => (char)value.TruncateForInteger();
+    public static explicit operator int(BigFloat value) => (int)value.TruncateForInteger();
+    public static explicit operator uint(BigFloat value) => (uint)value.TruncateForInteger();
+    public static explicit operator long(BigFloat value) => (long)value.TruncateForInteger();
+    public static explicit operator ulong(BigFloat value) => (ulong)value.TruncateForInteger();
+    public static explicit operator nint(BigFloat value) => (nint)value.TruncateForInteger();
+    public static explicit operator nuint(BigFloat value) => (nuint)value.TruncateForInteger();
+    public static explicit operator Int128(BigFloat value) => (Int128)value.TruncateForInteger();
+    public static explicit operator UInt128(BigFloat value) => (UInt128)value.TruncateForInteger();
 
     /// <summary>Truncates toward zero; throws <see cref="OverflowException"/> for NaN or infinity.</summary>
-    public static explicit operator BigInt(Real value) => value.ToBigInt();
+    public static explicit operator BigInt(BigFloat value) => value.ToBigInt();
 
     /// <summary>Truncates toward zero; throws <see cref="OverflowException"/> for NaN or infinity.</summary>
-    public static explicit operator BigInteger(Real value) => (BigInteger)value.ToBigInt();
+    public static explicit operator BigInteger(BigFloat value) => (BigInteger)value.ToBigInt();
 
     /// <summary>The exact value; throws <see cref="OverflowException"/> for NaN or infinity.</summary>
-    public static explicit operator BigRational(Real value) => value.ToRational();
+    public static explicit operator BigRational(BigFloat value) => value.ToRational();
 
-    public static explicit operator double(Real value) => value.ToDouble();
-    public static explicit operator float(Real value) => value.ToSingle();
-    public static explicit operator System.Half(Real value) => value.ToHalf();
+    public static explicit operator double(BigFloat value) => value.ToDouble();
+    public static explicit operator float(BigFloat value) => value.ToSingle();
+    public static explicit operator System.Half(BigFloat value) => value.ToHalf();
 
     /// <summary>Nearest decimal (ties to even); throws <see cref="OverflowException"/> for NaN, infinity or out-of-range values.</summary>
-    public static explicit operator decimal(Real value) => value.ToDecimal();
+    public static explicit operator decimal(BigFloat value) => value.ToDecimal();
 
     /// <summary>Nearest decimal (ties to even); throws <see cref="OverflowException"/> for NaN, infinity or out-of-range values.</summary>
     public decimal ToDecimal() =>
@@ -118,20 +118,20 @@ public readonly partial struct Real
     // Generic-math conversions
     // ---------------------------------------------------------------
 
-    static bool INumberBase<Real>.TryConvertFromChecked<TOther>(TOther value, out Real result) => TryConvertFrom(value, out result);
-    static bool INumberBase<Real>.TryConvertFromSaturating<TOther>(TOther value, out Real result) => TryConvertFrom(value, out result);
-    static bool INumberBase<Real>.TryConvertFromTruncating<TOther>(TOther value, out Real result) => TryConvertFrom(value, out result);
+    static bool INumberBase<BigFloat>.TryConvertFromChecked<TOther>(TOther value, out BigFloat result) => TryConvertFrom(value, out result);
+    static bool INumberBase<BigFloat>.TryConvertFromSaturating<TOther>(TOther value, out BigFloat result) => TryConvertFrom(value, out result);
+    static bool INumberBase<BigFloat>.TryConvertFromTruncating<TOther>(TOther value, out BigFloat result) => TryConvertFrom(value, out result);
 
-    static bool INumberBase<Real>.TryConvertToChecked<TOther>(Real value, [MaybeNullWhen(false)] out TOther result) =>
+    static bool INumberBase<BigFloat>.TryConvertToChecked<TOther>(BigFloat value, [MaybeNullWhen(false)] out TOther result) =>
         TryConvertTo(value, ConvertMode.Checked, out result);
 
-    static bool INumberBase<Real>.TryConvertToSaturating<TOther>(Real value, [MaybeNullWhen(false)] out TOther result) =>
+    static bool INumberBase<BigFloat>.TryConvertToSaturating<TOther>(BigFloat value, [MaybeNullWhen(false)] out TOther result) =>
         TryConvertTo(value, ConvertMode.Saturating, out result);
 
-    static bool INumberBase<Real>.TryConvertToTruncating<TOther>(Real value, [MaybeNullWhen(false)] out TOther result) =>
+    static bool INumberBase<BigFloat>.TryConvertToTruncating<TOther>(BigFloat value, [MaybeNullWhen(false)] out TOther result) =>
         TryConvertTo(value, ConvertMode.Truncating, out result);
 
-    private static bool TryConvertFrom<TOther>(TOther value, out Real result)
+    private static bool TryConvertFrom<TOther>(TOther value, out BigFloat result)
         where TOther : INumberBase<TOther>
     {
         if (BigInt.TryFromIntegerPrimitive(value, out BigInt i))
@@ -178,7 +178,7 @@ public readonly partial struct Real
         return false;
     }
 
-    private static bool TryConvertTo<TOther>(Real value, ConvertMode mode, [MaybeNullWhen(false)] out TOther result)
+    private static bool TryConvertTo<TOther>(BigFloat value, ConvertMode mode, [MaybeNullWhen(false)] out TOther result)
         where TOther : INumberBase<TOther>
     {
         bool special = value._kind is Kind.NaN or Kind.Inf;
@@ -209,7 +209,7 @@ public readonly partial struct Real
         {
             IeeeFormat f = typeof(TOther) == typeof(double) ? IeeeFormat.Binary64
                 : typeof(TOther) == typeof(float) ? IeeeFormat.Binary32 : IeeeFormat.Binary16;
-            result = TOther.CreateTruncating(value.ToIeee(f, RealRounding.NearestEven));
+            result = TOther.CreateTruncating(value.ToIeee(f, RoundingMode.NearestEven));
             return true;
         }
         if (typeof(TOther) == typeof(decimal))
@@ -251,41 +251,41 @@ public readonly partial struct Real
     // Public CreateChecked / CreateSaturating / CreateTruncating (like BigInteger)
     // ---------------------------------------------------------------
 
-    public static Real CreateChecked<TOther>(TOther value) where TOther : INumberBase<TOther>
+    public static BigFloat CreateChecked<TOther>(TOther value) where TOther : INumberBase<TOther>
     {
-        if (typeof(TOther) == typeof(Real))
+        if (typeof(TOther) == typeof(BigFloat))
         {
-            return (Real)(object)value;
+            return (BigFloat)(object)value;
         }
-        if (!TryConvertFrom(value, out Real result) && !TOther.TryConvertToChecked(value, out result))
+        if (!TryConvertFrom(value, out BigFloat result) && !TOther.TryConvertToChecked(value, out result))
         {
-            throw new NotSupportedException($"Conversion from {typeof(TOther).Name} to Real is not supported.");
+            throw new NotSupportedException($"Conversion from {typeof(TOther).Name} to BigFloat is not supported.");
         }
         return result;
     }
 
-    public static Real CreateSaturating<TOther>(TOther value) where TOther : INumberBase<TOther>
+    public static BigFloat CreateSaturating<TOther>(TOther value) where TOther : INumberBase<TOther>
     {
-        if (typeof(TOther) == typeof(Real))
+        if (typeof(TOther) == typeof(BigFloat))
         {
-            return (Real)(object)value;
+            return (BigFloat)(object)value;
         }
-        if (!TryConvertFrom(value, out Real result) && !TOther.TryConvertToSaturating(value, out result))
+        if (!TryConvertFrom(value, out BigFloat result) && !TOther.TryConvertToSaturating(value, out result))
         {
-            throw new NotSupportedException($"Conversion from {typeof(TOther).Name} to Real is not supported.");
+            throw new NotSupportedException($"Conversion from {typeof(TOther).Name} to BigFloat is not supported.");
         }
         return result;
     }
 
-    public static Real CreateTruncating<TOther>(TOther value) where TOther : INumberBase<TOther>
+    public static BigFloat CreateTruncating<TOther>(TOther value) where TOther : INumberBase<TOther>
     {
-        if (typeof(TOther) == typeof(Real))
+        if (typeof(TOther) == typeof(BigFloat))
         {
-            return (Real)(object)value;
+            return (BigFloat)(object)value;
         }
-        if (!TryConvertFrom(value, out Real result) && !TOther.TryConvertToTruncating(value, out result))
+        if (!TryConvertFrom(value, out BigFloat result) && !TOther.TryConvertToTruncating(value, out result))
         {
-            throw new NotSupportedException($"Conversion from {typeof(TOther).Name} to Real is not supported.");
+            throw new NotSupportedException($"Conversion from {typeof(TOther).Name} to BigFloat is not supported.");
         }
         return result;
     }

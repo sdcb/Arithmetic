@@ -71,7 +71,7 @@ public class GenericAlgorithmTests
         BigInteger expected = Sum(xs.Select(x => (BigInteger)x));
         Assert.Equal(expected, (BigInteger)Sum(xs.Select(x => (BigInt)x)));
         Assert.Equal((BigRational)expected, Sum(xs.Select(x => (BigRational)x)));
-        Assert.True((Real)expected == Sum(xs.Select(x => Real.FromBigInt(x, 256))));
+        Assert.True((BigFloat)expected == Sum(xs.Select(x => BigFloat.FromBigInt(x, 256))));
 
         // Harmonic number H_20 exactly.
         BigRational h = Sum(Enumerable.Range(1, 20).Select(k => new BigRational(1, k)));
@@ -87,10 +87,10 @@ public class GenericAlgorithmTests
             BigInteger expected = Horner((BigInteger)x, coeffs);
             Assert.Equal(expected, (BigInteger)Horner((BigInt)x, coeffs));
             Assert.Equal((BigRational)expected, Horner((BigRational)x, coeffs));
-            Assert.True((Real)expected == Horner((Real)x, coeffs));
+            Assert.True((BigFloat)expected == Horner((BigFloat)x, coeffs));
         }
         Assert.Equal(new BigRational(205, 32), Horner(new BigRational(1, 2), coeffs));
-        Assert.Equal(205.0 / 32, Horner((Real)0.5, coeffs).ToDouble());
+        Assert.Equal(205.0 / 32, Horner((BigFloat)0.5, coeffs).ToDouble());
     }
 
     [Fact]
@@ -110,20 +110,20 @@ public class GenericAlgorithmTests
     {
         Assert.Equal(BigInt.Factorial(40), Factorial<BigInt>(40));
         Assert.Equal(new BigRational(BigInt.Factorial(25)), Factorial<BigRational>(25));
-        Assert.True(Real.FromBigInt(BigInt.Factorial(30)) == Factorial<Real>(30));
+        Assert.True(BigFloat.FromBigInt(BigInt.Factorial(30)) == Factorial<BigFloat>(30));
     }
 
     [Fact]
-    public void NewtonSqrt_RealConvergesToSqrt()
+    public void NewtonSqrt_BigFloatConvergesToSqrt()
     {
         // Tests run in parallel, so stay at the (unchanged) DefaultPrecision.
-        int p = Real.DefaultPrecision;
+        int p = BigFloat.DefaultPrecision;
         foreach (int v in new[] { 2, 3, 10, 12345, 1 << 20 })
         {
-            Real x = Real.FromBigInt(v, p);
-            Real g = NewtonSqrt(x);
-            Real exact = Real.Sqrt(x);
-            Assert.True((g - exact).Abs() <= Real.ScaleB(exact, 3 - p), $"sqrt({v})");
+            BigFloat x = BigFloat.FromBigInt(v, p);
+            BigFloat g = NewtonSqrt(x);
+            BigFloat exact = BigFloat.Sqrt(x);
+            Assert.True((g - exact).Abs() <= BigFloat.ScaleB(exact, 3 - p), $"sqrt({v})");
         }
         Assert.Equal(Math.Sqrt(2), NewtonSqrt(2.0), 15);
     }
@@ -135,8 +135,8 @@ public class GenericAlgorithmTests
         Assert.True(typeof(ISignedNumber<BigInt>).IsAssignableFrom(typeof(BigInt)));
         Assert.True(typeof(INumber<BigRational>).IsAssignableFrom(typeof(BigRational)));
         Assert.True(typeof(ISignedNumber<BigRational>).IsAssignableFrom(typeof(BigRational)));
-        Assert.True(typeof(IBinaryFloatingPointIeee754<Real>).IsAssignableFrom(typeof(Real)));
-        Assert.True(typeof(IUtf8SpanFormattable).IsAssignableFrom(typeof(Real)));
+        Assert.True(typeof(IBinaryFloatingPointIeee754<BigFloat>).IsAssignableFrom(typeof(BigFloat)));
+        Assert.True(typeof(IUtf8SpanFormattable).IsAssignableFrom(typeof(BigFloat)));
         Assert.True(typeof(IUtf8SpanParsable<BigInt>).IsAssignableFrom(typeof(BigInt)));
     }
 }

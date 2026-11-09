@@ -10,7 +10,7 @@ namespace Sdcb.Arithmetic;
 // only when every value of [y(1-ε), y(1+ε)] rounds to the same binary128 value under the requested mode
 // (rounding is monotonic, so f's correct rounding is then that value). Otherwise, and whenever an argument
 // or result leaves a kernel's proven range (subnormal or overflowing results, huge trig arguments, special
-// values), the caller falls back to the correctly rounded Real path. Exact results sit on a rounding
+// values), the caller falls back to the correctly rounded BigFloat path. Exact results sit on a rounding
 // boundary in the directed modes and RNE midpoints sit on one in RNE, so both always fall back.
 //
 // Error bounds of the primitives below are relative to the exact result of the operation on the given
@@ -257,7 +257,7 @@ public readonly partial struct Float128
     /// 113 bits of A; the tail T (bits below them plus t, in units of 2^E) must stay at distance &gt; δ from the
     /// rounding boundaries, δ = eps·2^118 + 2^-36 ≥ eps·y·F plus every rounding of t and T.
     /// </remarks>
-    private static bool TryRound(in Td y, int scale, double eps, RealRounding rounding, out Float128 result)
+    private static bool TryRound(in Td y, int scale, double eps, RoundingMode rounding, out Float128 result)
     {
         result = default;
         double h = y.H, m = y.M, l = y.L;
@@ -305,7 +305,7 @@ public readonly partial struct Float128
         }
         double delta = eps * 3.3230699894622794E+35 /* 2^118 */ + 1.4551915228366852E-11 /* 2^-36 */;
         bool up;
-        if (rounding == RealRounding.NearestEven)
+        if (rounding == RoundingMode.NearestEven)
         {
             double half = 0.5 * w;
             if (tail + delta < half)
@@ -341,34 +341,34 @@ public readonly partial struct Float128
     }
 
     // ---------------------------------------------------------------
-    // Constants and tables (computed once from Real at 320 bits)
+    // Constants and tables (computed once from BigFloat at 320 bits)
     // ---------------------------------------------------------------
 
     private const int TablePrecision = 320;
 
     /// <summary>The nearest triple-double to v (error ≤ 2^-160·|v|).</summary>
-    private static Td TdOf(Real v)
+    private static Td TdOf(BigFloat v)
     {
         double h = v.ToDouble();
-        Real r = Real.Subtract(v, Real.FromDouble(h), 1000);
+        BigFloat r = BigFloat.Subtract(v, BigFloat.FromDouble(h), 1000);
         double m = r.ToDouble();
-        r = Real.Subtract(r, Real.FromDouble(m), 1000);
+        r = BigFloat.Subtract(r, BigFloat.FromDouble(m), 1000);
         return new Td(h, m, r.ToDouble());
     }
 
     /// <summary>v as n doubles of decreasing magnitude (each the nearest double to the remainder).</summary>
-    private static double[] PartsOf(Real v, int n)
+    private static double[] PartsOf(BigFloat v, int n)
     {
         var p = new double[n];
         for (int i = 0; i < n; i++)
         {
             p[i] = v.ToDouble();
-            v = Real.Subtract(v, Real.FromDouble(p[i]), 1000);
+            v = BigFloat.Subtract(v, BigFloat.FromDouble(p[i]), 1000);
         }
         return p;
     }
 
-    private static Real Rat(double num, double den) => Real.Divide(Real.FromDouble(num), Real.FromDouble(den), TablePrecision);
+    private static BigFloat Rat(double num, double den) => BigFloat.Divide(BigFloat.FromDouble(num), BigFloat.FromDouble(den), TablePrecision);
 
     /// <summary>Shared constants.</summary>
     private static class FpConst
@@ -378,13 +378,13 @@ public readonly partial struct Float128
 
         static FpConst()
         {
-            Real ln2 = Real.Ln2(TablePrecision);
+            BigFloat ln2 = BigFloat.Ln2(TablePrecision);
             double[] p = PartsOf(ln2, 3);
             (Ln2P0, Ln2P1, Ln2P2) = (p[0], p[1], p[2]);
             Ln2 = TdOf(ln2);
-            InvLn2 = TdOf(Real.Divide(Real.FromDouble(1), ln2, TablePrecision));
-            InvLn10 = TdOf(Real.Divide(Real.FromDouble(1), Real.Log(Real.FromDouble(10), TablePrecision), TablePrecision));
-            Real pi = Real.Pi(TablePrecision);
+            InvLn2 = TdOf(BigFloat.Divide(BigFloat.FromDouble(1), ln2, TablePrecision));
+            InvLn10 = TdOf(BigFloat.Divide(BigFloat.FromDouble(1), BigFloat.Log(BigFloat.FromDouble(10), TablePrecision), TablePrecision));
+            BigFloat pi = BigFloat.Pi(TablePrecision);
             Pi = TdOf(pi);
             PiHalf = TdOf(pi.ShiftRight(1));
             OneThird = TdOf(Rat(1, 3));
@@ -403,12 +403,12 @@ public readonly partial struct Float128
 
         static FpExp()
         {
-            double[] l = PartsOf(Real.Ln2(TablePrecision).ShiftRight(12), 4);
+            double[] l = PartsOf(BigFloat.Ln2(TablePrecision).ShiftRight(12), 4);
             (L0, L1, L2, L3) = (l[0], l[1], l[2], l[3]);
             for (int j = 0; j < 64; j++)
             {
-                T1[j] = TdOf(Real.Exp2(Real.FromDouble(j / 64.0), TablePrecision));
-                T2[j] = TdOf(Real.Exp2(Real.FromDouble(j / 4096.0), TablePrecision));
+                T1[j] = TdOf(BigFloat.Exp2(BigFloat.FromDouble(j / 64.0), TablePrecision));
+                T2[j] = TdOf(BigFloat.Exp2(BigFloat.FromDouble(j / 4096.0), TablePrecision));
             }
             double[] f3 = PartsOf(Rat(1, 6), 2), f4 = PartsOf(Rat(1, 24), 2), f5 = PartsOf(Rat(1, 120), 2), f6 = PartsOf(Rat(1, 720), 2);
             (F3h, F3l, F4h, F4l, F5h, F5l, F6h, F6l) = (f3[0], f3[1], f4[0], f4[1], f5[0], f5[1], f6[0], f6[1]);
@@ -438,16 +438,16 @@ public readonly partial struct Float128
             {
                 double c = 128.0 / v;
                 C1[v - 90] = c;
-                NL1[v - 90] = TdOf(-Real.Log(Real.FromDouble(c), TablePrecision));
+                NL1[v - 90] = TdOf(-BigFloat.Log(BigFloat.FromDouble(c), TablePrecision));
             }
             for (int v = -96; v <= 96; v++)
             {
                 double c = 1.0 / (1.0 + v / 16384.0);
                 C2[v + 96] = c;
-                NL2[v + 96] = TdOf(-Real.Log(Real.FromDouble(c), TablePrecision));
+                NL2[v + 96] = TdOf(-BigFloat.Log(BigFloat.FromDouble(c), TablePrecision));
             }
-            Real s2 = Real.Sqrt(Real.FromDouble(2), 200).ShiftLeft(112);
-            Sqrt2Sig = (UInt128)Real.Floor(s2).ToBigInt();
+            BigFloat s2 = BigFloat.Sqrt(BigFloat.FromDouble(2), 200).ShiftLeft(112);
+            Sqrt2Sig = (UInt128)BigFloat.Floor(s2).ToBigInt();
             double[] a = PartsOf(Rat(1, 3), 2), b = PartsOf(Rat(-1, 4), 2), c5 = PartsOf(Rat(1, 5), 2), d = PartsOf(Rat(-1, 6), 2);
             (P3h, P3l, P4h, P4l, P5h, P5l, P6h, P6l) = (a[0], a[1], b[0], b[1], c5[0], c5[1], d[0], d[1]);
         }
@@ -466,14 +466,14 @@ public readonly partial struct Float128
 
         static FpTrig()
         {
-            Real pi = Real.Pi(TablePrecision + 20);
+            BigFloat pi = BigFloat.Pi(TablePrecision + 20);
             double[] p = PartsOf(pi.ShiftRight(8), 4);
             (P0, P1, P2, P3) = (p[0], p[1], p[2], p[3]);
             for (int j = 0; j < 128; j++)
             {
-                Real a = Real.Multiply(pi, Real.FromDouble(j / 256.0), TablePrecision + 20);
-                S[j] = TdOf(Real.Sin(a, TablePrecision));
-                C[j] = TdOf(Real.Cos(a, TablePrecision));
+                BigFloat a = BigFloat.Multiply(pi, BigFloat.FromDouble(j / 256.0), TablePrecision + 20);
+                S[j] = TdOf(BigFloat.Sin(a, TablePrecision));
+                C[j] = TdOf(BigFloat.Cos(a, TablePrecision));
             }
             double[] s5 = PartsOf(Rat(1, 120), 2), s7 = PartsOf(Rat(-1, 5040), 2), s9 = PartsOf(Rat(1, 362880), 2);
             (S5h, S5l, S7h, S7l, S9h, S9l) = (s5[0], s5[1], s7[0], s7[1], s9[0], s9[1]);
@@ -500,7 +500,7 @@ public readonly partial struct Float128
         {
             for (int j = 0; j <= 128; j++)
             {
-                A[j] = TdOf(Real.Atan(Real.FromDouble(j / 128.0), TablePrecision));
+                A[j] = TdOf(BigFloat.Atan(BigFloat.FromDouble(j / 128.0), TablePrecision));
             }
             double[] a5 = PartsOf(Rat(1, 5), 2), a7 = PartsOf(Rat(-1, 7), 2), a9 = PartsOf(Rat(1, 9), 2), a11 = PartsOf(Rat(-1, 11), 2);
             (A5h, A5l, A7h, A7l, A9h, A9l, A11h, A11l) = (a5[0], a5[1], a7[0], a7[1], a9[0], a9[1], a11[0], a11[1]);

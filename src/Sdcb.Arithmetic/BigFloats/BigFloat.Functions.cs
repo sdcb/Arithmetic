@@ -2,14 +2,14 @@ using System.Diagnostics;
 
 namespace Sdcb.Arithmetic;
 
-public readonly partial struct Real
+public readonly partial struct BigFloat
 {
     // ---------------------------------------------------------------
     // Helpers for functions built from correctly rounded sub-results
     // ---------------------------------------------------------------
 
-    /// <summary>Turns a Real computed with errUlps ulps of error into a Ziv approximation triple.</summary>
-    private static (BigInt, long, long) Approx(Real v, long errUlps)
+    /// <summary>Turns a BigFloat computed with errUlps ulps of error into a Ziv approximation triple.</summary>
+    private static (BigInt, long, long) Approx(BigFloat v, long errUlps)
     {
         if (v._kind != Kind.Normal)
         {
@@ -18,7 +18,7 @@ public readonly partial struct Real
         return (v.IsNeg ? -v._man : v._man, v._exp, errUlps);
     }
 
-    private static Real ExactOne(int prec, RealRounding rnd, bool negative = false)
+    private static BigFloat ExactOne(int prec, RoundingMode rnd, bool negative = false)
         => Round(BigInt.One, 0, sticky: false, negative, prec, rnd, out _);
 
     // ---------------------------------------------------------------
@@ -26,7 +26,7 @@ public readonly partial struct Real
     // ---------------------------------------------------------------
 
     /// <summary>Secant 1/cos(x) (mpfr_sec).</summary>
-    public static Real Sec(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Sec(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         return x._kind switch
@@ -38,7 +38,7 @@ public readonly partial struct Real
     }
 
     /// <summary>Cosecant 1/sin(x) (mpfr_csc).</summary>
-    public static Real Csc(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Csc(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         return x._kind switch
@@ -50,7 +50,7 @@ public readonly partial struct Real
     }
 
     /// <summary>Cotangent cos(x)/sin(x) (mpfr_cot).</summary>
-    public static Real Cot(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Cot(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         return x._kind switch
@@ -62,7 +62,7 @@ public readonly partial struct Real
     }
 
     /// <summary>Hyperbolic secant 1/cosh(x) (mpfr_sech).</summary>
-    public static Real Sech(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Sech(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         return x._kind switch
@@ -75,7 +75,7 @@ public readonly partial struct Real
     }
 
     /// <summary>Hyperbolic cosecant 1/sinh(x) (mpfr_csch).</summary>
-    public static Real Csch(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Csch(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         return x._kind switch
@@ -88,7 +88,7 @@ public readonly partial struct Real
     }
 
     /// <summary>Hyperbolic cotangent 1/tanh(x) (mpfr_coth).</summary>
-    public static Real Coth(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Coth(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         return x._kind switch
@@ -101,7 +101,7 @@ public readonly partial struct Real
     }
 
     /// <summary>Hyperbolic sine and cosine of x with one call (mpfr_sinh_cosh).</summary>
-    public static (Real Sinh, Real Cosh) SinhCosh(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static (BigFloat Sinh, BigFloat Cosh) SinhCosh(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
         => (Sinh(x, precision, rounding), Cosh(x, precision, rounding));
 
     // ---------------------------------------------------------------
@@ -112,7 +112,7 @@ public readonly partial struct Real
     /// Splits a finite x into n + r with n the nearest integer (ties up) and r exact in
     /// [-1/2, 1/2); returns whether n is odd.
     /// </summary>
-    private static bool SplitNearestInteger(Real x, out Real r)
+    private static bool SplitNearestInteger(BigFloat x, out BigFloat r)
     {
         Debug.Assert(x._kind == Kind.Normal);
         if (x.BinaryExponent < 0)
@@ -129,15 +129,15 @@ public readonly partial struct Real
         BigInt m = x.IsNeg ? -x._man : x._man;
         BigInt n = (m + (BigInt.One << (int)Math.Min(f - 1, int.MaxValue))).ShiftRightFloor(f);
         BigInt rm = m - n.ShiftLeft(f);
-        r = rm.IsZero ? MakeZero(x.IsNeg, x.Precision) : Round(rm.Abs(), x._exp, sticky: false, rm.Sign < 0, x.Precision + 1, RealRounding.NearestEven, out _);
+        r = rm.IsZero ? MakeZero(x.IsNeg, x.Precision) : Round(rm.Abs(), x._exp, sticky: false, rm.Sign < 0, x.Precision + 1, RoundingMode.NearestEven, out _);
         return n.IsOdd;
     }
 
-    private static int CompareAbsQuarter(Real r) // |r| vs 1/4
+    private static int CompareAbsQuarter(BigFloat r) // |r| vs 1/4
         => r._kind == Kind.Zero ? -1 : CompareValues(r.Abs(), FromBigInt(BigInt.One, MinPrecision).ShiftRight(2));
 
     /// <summary>sin(πx) (mpfr_sinpi).</summary>
-    public static Real SinPi(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat SinPi(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
@@ -148,29 +148,29 @@ public readonly partial struct Real
             case Kind.Zero:
                 return MakeZero(x.IsNeg, prec);
         }
-        bool odd = SplitNearestInteger(x, out Real r);
+        bool odd = SplitNearestInteger(x, out BigFloat r);
         if (r._kind == Kind.Zero)
         {
             return MakeZero(x.IsNeg, prec); // sinPi(n) = ±0 with the sign of x
         }
         bool neg = r.IsNeg ^ odd;
-        Real ra = r.Abs();
+        BigFloat ra = r.Abs();
         if (CompareValues(ra, Half) == 0)
         {
             return ExactOne(prec, rounding, neg);
         }
         bool useCos = CompareAbsQuarter(ra) > 0;
-        Real arg = useCos ? Subtract(Half, ra, ra.Precision + 2) : ra; // exact
+        BigFloat arg = useCos ? Subtract(Half, ra, ra.Precision + 2) : ra; // exact
         return Ziv(prec, rounding, wp =>
         {
-            Real t = Multiply(Pi(wp + 16), arg, wp + 16);
-            Real v = useCos ? Cos(t, wp + 16) : Sin(t, wp + 16);
+            BigFloat t = Multiply(Pi(wp + 16), arg, wp + 16);
+            BigFloat v = useCos ? Cos(t, wp + 16) : Sin(t, wp + 16);
             return Approx(neg ? -v : v, 8);
         });
     }
 
     /// <summary>cos(πx) (mpfr_cospi).</summary>
-    public static Real CosPi(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat CosPi(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
@@ -181,28 +181,28 @@ public readonly partial struct Real
             case Kind.Zero:
                 return ExactOne(prec, rounding);
         }
-        bool odd = SplitNearestInteger(x, out Real r);
+        bool odd = SplitNearestInteger(x, out BigFloat r);
         if (r._kind == Kind.Zero)
         {
             return ExactOne(prec, rounding, odd);
         }
-        Real ra = r.Abs();
+        BigFloat ra = r.Abs();
         if (CompareValues(ra, Half) == 0)
         {
             return MakeZero(negative: false, prec); // cosPi(n + 1/2) = +0
         }
         bool useSin = CompareAbsQuarter(ra) > 0;
-        Real arg = useSin ? Subtract(Half, ra, ra.Precision + 2) : ra;
+        BigFloat arg = useSin ? Subtract(Half, ra, ra.Precision + 2) : ra;
         return Ziv(prec, rounding, wp =>
         {
-            Real t = Multiply(Pi(wp + 16), arg, wp + 16);
-            Real v = useSin ? Sin(t, wp + 16) : Cos(t, wp + 16);
+            BigFloat t = Multiply(Pi(wp + 16), arg, wp + 16);
+            BigFloat v = useSin ? Sin(t, wp + 16) : Cos(t, wp + 16);
             return Approx(odd ? -v : v, 8);
         });
     }
 
     /// <summary>tan(πx) (mpfr_tanpi).</summary>
-    public static Real TanPi(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat TanPi(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
@@ -213,13 +213,13 @@ public readonly partial struct Real
             case Kind.Zero:
                 return MakeZero(x.IsNeg, prec);
         }
-        bool odd = SplitNearestInteger(x, out Real r);
+        bool odd = SplitNearestInteger(x, out BigFloat r);
         if (r._kind == Kind.Zero)
         {
             // tanPi(n): +0 for positive even / negative odd n, -0 otherwise.
             return MakeZero(x.IsNeg ^ odd, prec);
         }
-        Real ra = r.Abs();
+        BigFloat ra = r.Abs();
         if (CompareValues(ra, Half) == 0)
         {
             // r = -1/2: x = (n-1) + 1/2, and tanPi(k + 1/2) is +inf for even k, -inf for odd k.
@@ -231,11 +231,11 @@ public readonly partial struct Real
             return ExactOne(prec, rounding, r.IsNeg);
         }
         bool useCot = q > 0;
-        Real arg = useCot ? Subtract(Half, ra, ra.Precision + 2) : ra;
+        BigFloat arg = useCot ? Subtract(Half, ra, ra.Precision + 2) : ra;
         return Ziv(prec, rounding, wp =>
         {
-            Real t = Multiply(Pi(wp + 16), arg, wp + 16);
-            Real v = Tan(t, wp + 16);
+            BigFloat t = Multiply(Pi(wp + 16), arg, wp + 16);
+            BigFloat v = Tan(t, wp + 16);
             if (useCot)
             {
                 v = Divide(One, v, wp + 16);
@@ -249,14 +249,14 @@ public readonly partial struct Real
     // ---------------------------------------------------------------
 
     /// <summary>2^x - 1 accurate near 0 (mpfr_exp2m1).</summary>
-    public static Real Exp2M1(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Exp2M1(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
         => ExpBaseM1(x, 2, precision, rounding);
 
     /// <summary>10^x - 1 accurate near 0 (mpfr_exp10m1).</summary>
-    public static Real Exp10M1(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Exp10M1(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
         => ExpBaseM1(x, 10, precision, rounding);
 
-    private static Real ExpBaseM1(Real x, int b, int precision, RealRounding rounding)
+    private static BigFloat ExpBaseM1(BigFloat x, int b, int precision, RoundingMode rounding)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
@@ -274,7 +274,7 @@ public readonly partial struct Real
             if (b == 2)
             {
                 // 2^k - 1 is exact (dyadic) for every integer k.
-                return Subtract(RoundPow2(k, negative: false, MinPrecision, RealRounding.NearestEven), One, prec, rounding);
+                return Subtract(RoundPow2(k, negative: false, MinPrecision, RoundingMode.NearestEven), One, prec, rounding);
             }
             if (k >= 0 && k <= 100000)
             {
@@ -289,21 +289,21 @@ public readonly partial struct Real
         {
             // Relative condition number of expm1 at y = x ln b is about max(1, |y|).
             int wpi = wp + 16 + (int)Math.Max(0, x.BinaryExponent + 4);
-            Real lnb = b == 2 ? Ln2(wpi) : Log(FromBigInt(new BigInt(b)), wpi);
-            Real y = Multiply(x, lnb, wpi);
+            BigFloat lnb = b == 2 ? Ln2(wpi) : Log(FromBigInt(new BigInt(b)), wpi);
+            BigFloat y = Multiply(x, lnb, wpi);
             return Approx(ExpM1(y, wpi), 8);
         });
     }
 
     /// <summary>log2(1 + x) accurate near 0 (mpfr_log2p1).</summary>
-    public static Real Log2P1(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Log2P1(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
         => LogBaseP1(x, 2, precision, rounding);
 
     /// <summary>log10(1 + x) accurate near 0 (mpfr_log10p1).</summary>
-    public static Real Log10P1(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Log10P1(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
         => LogBaseP1(x, 10, precision, rounding);
 
-    private static Real LogBaseP1(Real x, int b, int precision, RealRounding rounding)
+    private static BigFloat LogBaseP1(BigFloat x, int b, int precision, RoundingMode rounding)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
@@ -324,7 +324,7 @@ public readonly partial struct Real
         long bits = Math.Max(x.BinaryExponent, 1) - Math.Min(x._exp, 0) + 2;
         if (bits <= 1 << 20)
         {
-            Real y = Add(One, x, (int)bits);
+            BigFloat y = Add(One, x, (int)bits);
             if (b == 2 && IsPowerOfTwoValue(y, out long k2))
             {
                 return FromBigInt(new BigInt(k2), prec, rounding);
@@ -342,14 +342,14 @@ public readonly partial struct Real
         return Ziv(prec, rounding, wp =>
         {
             int wpi = wp + 16;
-            Real l = LogP1(x, wpi);
-            Real lnb = b == 2 ? Ln2(wpi) : Log(FromBigInt(new BigInt(b)), wpi);
+            BigFloat l = LogP1(x, wpi);
+            BigFloat lnb = b == 2 ? Ln2(wpi) : Log(FromBigInt(new BigInt(b)), wpi);
             return Approx(Divide(l, lnb, wpi), 4);
         });
     }
 
     /// <summary>Natural logarithm of an unsigned integer (mpfr_log_ui).</summary>
-    public static Real Log(ulong n, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Log(ulong n, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, DefaultPrecision);
         if (n == 0)
@@ -364,7 +364,7 @@ public readonly partial struct Real
     // ---------------------------------------------------------------
 
     /// <summary>Arithmetic-geometric mean of a and b (mpfr_agm); NaN for negative arguments.</summary>
-    public static Real ArithmeticGeometricMean(Real a, Real b, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat ArithmeticGeometricMean(BigFloat a, BigFloat b, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrec(a, b, precision);
         if (a._kind == Kind.NaN || b._kind == Kind.NaN)
@@ -394,16 +394,16 @@ public readonly partial struct Real
             long spread = Math.Abs(a.BinaryExponent - b.BinaryExponent);
             int lgs = 64 - System.Numerics.BitOperations.LeadingZeroCount((ulong)spread + 1);
             int p = wp + 2 * (lg + lgs) + 16;
-            Real u = a.WithPrecision(p), v = b.WithPrecision(p);
+            BigFloat u = a.WithPrecision(p), v = b.WithPrecision(p);
             int iters = 0;
             while (true)
             {
-                Real diff = Subtract(u, v, p);
+                BigFloat diff = Subtract(u, v, p);
                 if (diff._kind == Kind.Zero || diff.BinaryExponent < Math.Max(u.BinaryExponent, v.BinaryExponent) - p / 2 + 1)
                 {
                     break;
                 }
-                Real u1 = Add(u, v, p).ShiftRight(1);
+                BigFloat u1 = Add(u, v, p).ShiftRight(1);
                 v = Sqrt(Multiply(u, v, p), p);
                 u = u1;
                 iters++;
@@ -418,14 +418,14 @@ public readonly partial struct Real
     private static int s_catalanBits;
 
     /// <summary>EulerGamma-Mascheroni constant γ (mpfr_const_euler).</summary>
-    public static Real EulerGamma(int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat EulerGamma(int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, DefaultPrecision);
         return Ziv(prec, rounding, wp => (EulerFixed(wp), -wp, 64));
     }
 
     /// <summary>CatalanConstant's constant G (mpfr_const_catalan).</summary>
-    public static Real CatalanConstant(int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat CatalanConstant(int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, DefaultPrecision);
         return Ziv(prec, rounding, wp => (CatalanFixed(wp), -wp, 64));
@@ -450,7 +450,7 @@ public readonly partial struct Real
         // Terms grow to about e^{2n}/(2πn); carry that many integer bits on top of cp.
         int extra = (int)(2.8854 * n) + 16;
         int w = cp + extra;
-        Real lnN = Log(FromBigInt(new BigInt(n)), w + 64);
+        BigFloat lnN = Log(FromBigInt(new BigInt(n)), w + 64);
         BigInt a = -lnN.ToFixed(w);
         BigInt bk = BigInt.One << w;
         BigInt sa = a, sb = bk;
@@ -503,7 +503,7 @@ public readonly partial struct Real
             }
             sum += BigInt.DivRem(term, (2 * k + 1) * (2 * k + 1), out _);
         }
-        Real two3 = Add(FromBigInt(BigInt.Two), Sqrt(FromBigInt(new BigInt(3)), cp + 16), cp + 16);
+        BigFloat two3 = Add(FromBigInt(BigInt.Two), Sqrt(FromBigInt(new BigInt(3)), cp + 16), cp + 16);
         BigInt l = Log(two3, cp + 16).ToFixed(cp);
         BigInt g = (FixMul(PiFixed(cp), l, cp) >> 3) + ((sum * 3) >> 3);
         lock (ConstLock)
@@ -522,7 +522,7 @@ public readonly partial struct Real
     // ---------------------------------------------------------------
 
     /// <summary>n! correctly rounded (mpfr_fac_ui).</summary>
-    public static Real Factorial(ulong n, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Factorial(ulong n, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, DefaultPrecision);
         if (n <= 100000)
@@ -534,12 +534,12 @@ public readonly partial struct Real
     }
 
     /// <summary>x^n for an unsigned integer exponent (mpfr_pow_ui).</summary>
-    internal static Real PowUi(Real x, ulong n, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    internal static BigFloat PowUi(BigFloat x, ulong n, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
         => n <= long.MaxValue ? Pow(x, (long)n, precision, rounding) : Pow(x, FromBigInt(new BigInt(n)), precision, rounding);
 
 
     /// <summary>x^z for a BigInt exponent (mpfr_pow_z).</summary>
-    public static Real Pow(Real x, BigInt z, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Pow(BigFloat x, BigInt z, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         if (z.GetBitLength() <= 62)
         {
@@ -549,18 +549,18 @@ public readonly partial struct Real
     }
 
     /// <summary>n^m for unsigned integers (mpfr_ui_pow_ui).</summary>
-    internal static Real UiPowUi(ulong n, ulong m, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    internal static BigFloat UiPowUi(ulong n, ulong m, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
         => PowUi(FromBigInt(new BigInt(n), 66), m, ResolvePrecision(precision, DefaultPrecision), rounding);
 
     /// <summary>n^x for an unsigned integer base (mpfr_ui_pow).</summary>
-    internal static Real UiPow(ulong n, Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    internal static BigFloat UiPow(ulong n, BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
         => Pow(FromBigInt(new BigInt(n), 66), x, ResolvePrecision(precision, x.Precision), rounding);
 
     /// <summary>
     /// x^y defined as exp(y log x) (mpfr_powr, IEEE powr): NaN for x &lt; 0, and the
     /// indeterminate forms 0^0, inf^0, 1^inf are NaN.
     /// </summary>
-    public static Real Powr(Real x, Real y, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Powr(BigFloat x, BigFloat y, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, Math.Max(x.Precision, y.Precision));
         if (x._kind == Kind.NaN || y._kind == Kind.NaN || (x.IsNeg && x._kind != Kind.Zero))
@@ -586,7 +586,7 @@ public readonly partial struct Real
     }
 
     /// <summary>(1 + x)^n (mpfr_compound_si); NaN for x &lt; -1.</summary>
-    public static Real Compound(Real x, long n, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Compound(BigFloat x, long n, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         if (n == 0)
@@ -624,13 +624,13 @@ public readonly partial struct Real
         {
             int lgn = 64 - System.Numerics.BitOperations.LeadingZeroCount((ulong)Math.Abs(n));
             int wpi = wp + lgn + 16;
-            Real l = Multiply(LogP1(x, wpi), FromBigInt(new BigInt(n)), wpi);
+            BigFloat l = Multiply(LogP1(x, wpi), FromBigInt(new BigInt(n)), wpi);
             return Approx(Exp(l, wpi), 8);
         });
     }
 
     /// <summary>k-th root for a signed k (mpfr_rootn_si): x^(1/k).</summary>
-    public static Real RootN(Real x, long k, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat RootN(BigFloat x, long k, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         if (k > 0 && k <= uint.MaxValue)
         {
@@ -677,7 +677,7 @@ public readonly partial struct Real
             if (ae2 % kk == 0)
             {
                 long q = (long)(ae2 / kk); // kk >= 2, so |q| <= 2^62
-                Real p2 = FromBigInt(BigInt.One, prec).ShiftLeft((e2 < 0) != recip ? -q : q);
+                BigFloat p2 = FromBigInt(BigInt.One, prec).ShiftLeft((e2 < 0) != recip ? -q : q);
                 return x.IsNeg ? -p2 : p2;
             }
         }
@@ -685,8 +685,8 @@ public readonly partial struct Real
         {
             return Ziv(prec, rounding, wp =>
             {
-                Real root = RootN(x.Abs(), (uint)kk, wp + 8);
-                Real v = Divide(One, root, wp + 8);
+                BigFloat root = RootN(x.Abs(), (uint)kk, wp + 8);
+                BigFloat v = Divide(One, root, wp + 8);
                 return Approx(x.IsNeg ? -v : v, 4);
             });
         }
@@ -695,14 +695,14 @@ public readonly partial struct Real
         return Ziv(prec, rounding, wp =>
         {
             int wpi = wp + 48;
-            Real t = Divide(Log(x.Abs(), wpi), FromBigInt(new BigInt(k), 64), wpi);
-            Real v = Exp(t, wpi);
+            BigFloat t = Divide(Log(x.Abs(), wpi), FromBigInt(new BigInt(k), 64), wpi);
+            BigFloat v = Exp(t, wpi);
             return Approx(x.IsNeg ? -v : v, 8);
         });
     }
 
     /// <summary>Square root of an unsigned integer (mpfr_sqrt_ui).</summary>
-    public static Real Sqrt(ulong n, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Sqrt(ulong n, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
         => Sqrt(FromBigInt(new BigInt(n), 66), ResolvePrecision(precision, DefaultPrecision), rounding);
 
     // ---------------------------------------------------------------
@@ -710,7 +710,7 @@ public readonly partial struct Real
     // ---------------------------------------------------------------
 
     /// <summary>Returns the integral part of x and its fractional part in <paramref name="fraction"/>, both with the sign of x (mpfr_modf).</summary>
-    public static Real Truncate(Real x, out Real fraction, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Truncate(BigFloat x, out BigFloat fraction, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
@@ -733,23 +733,23 @@ public readonly partial struct Real
     /// IEEE remainder x - n y (n nearest x/y, ties even) together with the low 63 bits of
     /// n carrying the sign of x/y (mpfr_remquo).
     /// </summary>
-    public static Real Ieee754Remainder(Real x, Real y, out long quotient, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Ieee754Remainder(BigFloat x, BigFloat y, out long quotient, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
-        Real r = Ieee754Remainder(x, y, precision, rounding);
+        BigFloat r = Ieee754Remainder(x, y, precision, rounding);
         quotient = QuotientLowBits(x, y, nearest: true);
         return r;
     }
 
     /// <summary>fmod(x, y) together with the low 63 bits of trunc(x/y) carrying its sign (mpfr_fmodquo).</summary>
-    public static Real TruncatedRemainder(Real x, Real y, out long quotient, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat TruncatedRemainder(BigFloat x, BigFloat y, out long quotient, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
-        Real r = TruncatedRemainder(x, y, precision, rounding);
+        BigFloat r = TruncatedRemainder(x, y, precision, rounding);
         quotient = QuotientLowBits(x, y, nearest: false);
         return r;
     }
 
     /// <summary>Low 63 bits of the integer quotient (nearest-even or truncated) of x/y with its sign.</summary>
-    private static long QuotientLowBits(Real x, Real y, bool nearest)
+    private static long QuotientLowBits(BigFloat x, BigFloat y, bool nearest)
     {
         if (x._kind != Kind.Normal || y._kind != Kind.Normal)
         {
@@ -779,7 +779,7 @@ public readonly partial struct Real
     /// Returns m in [1/2, 1) and sets exponent so that x = m 2^exponent (mpfr_frexp);
     /// m is rounded to the requested precision (which may carry it to 1, then renormalized).
     /// </summary>
-    public static Real Decompose(Real x, out long exponent, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Decompose(BigFloat x, out long exponent, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         exponent = 0;
@@ -787,12 +787,12 @@ public readonly partial struct Real
         {
             return x.WithPrecisionSpecial(prec);
         }
-        Real m = Round(x._man, x._exp, sticky: false, x.IsNeg, prec, rounding, out _);
+        BigFloat m = Round(x._man, x._exp, sticky: false, x.IsNeg, prec, rounding, out _);
         exponent = m.BinaryExponent;
         return m.ShiftLeft(-exponent);
     }
 
-    private Real WithPrecisionSpecial(int prec) => _kind switch
+    private BigFloat WithPrecisionSpecial(int prec) => _kind switch
     {
         Kind.NaN => MakeNaN(prec),
         Kind.Inf => MakeInf(IsNeg, prec),
@@ -804,24 +804,24 @@ public readonly partial struct Real
     // ---------------------------------------------------------------
 
     /// <summary>Correctly rounded sum of all values with a single rounding (mpfr_sum).</summary>
-    public static Real Sum(ReadOnlySpan<Real> values, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Sum(ReadOnlySpan<BigFloat> values, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, DefaultPrecision);
         return SumExact(values, prec, rounding);
     }
 
     /// <summary>Correctly rounded dot product Σ a[i] b[i] with a single rounding (mpfr_dot).</summary>
-    public static Real Dot(ReadOnlySpan<Real> a, ReadOnlySpan<Real> b, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Dot(ReadOnlySpan<BigFloat> a, ReadOnlySpan<BigFloat> b, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         if (a.Length != b.Length)
         {
             throw new ArgumentException("Vectors must have the same length.");
         }
         int prec = ResolvePrecision(precision, DefaultPrecision);
-        var products = new Real[a.Length];
+        var products = new BigFloat[a.Length];
         for (int i = 0; i < a.Length; i++)
         {
-            Real x = a[i], y = b[i];
+            BigFloat x = a[i], y = b[i];
             products[i] = x._kind == Kind.Normal && y._kind == Kind.Normal
                 ? ExactProduct(x, y)
                 : Multiply(x, y, MinPrecision); // special values only
@@ -829,20 +829,20 @@ public readonly partial struct Real
         return SumExact(products, prec, rounding);
     }
 
-    private static Real ExactProduct(Real x, Real y)
+    private static BigFloat ExactProduct(BigFloat x, BigFloat y)
     {
         BigInt m = x._man * y._man;
-        return new Real(m, x._exp + y._exp, (int)m.GetBitLength(), Kind.Normal, x.IsNeg ^ y.IsNeg);
+        return new BigFloat(m, x._exp + y._exp, (int)m.GetBitLength(), Kind.Normal, x.IsNeg ^ y.IsNeg);
     }
 
-    private static Real SumExact(ReadOnlySpan<Real> values, int prec, RealRounding rnd)
+    private static BigFloat SumExact(ReadOnlySpan<BigFloat> values, int prec, RoundingMode rnd)
     {
         int n = values.Length;
         bool posInf = false, negInf = false, nan = false, allZero = true, allNegZero = true, anyNegZero = false;
         long minExp = long.MaxValue;
         for (int i = 0; i < n; i++)
         {
-            Real v = values[i];
+            BigFloat v = values[i];
             switch (v._kind)
             {
                 case Kind.NaN:
@@ -880,12 +880,12 @@ public readonly partial struct Real
         if (allZero)
         {
             // IEEE: -0 when all are -0; mixed signs give +0 (-0 toward -inf); empty sum is +0.
-            return MakeZero(n > 0 && (allNegZero || (anyNegZero && rnd == RealRounding.TowardNegative)), prec);
+            return MakeZero(n > 0 && (allNegZero || (anyNegZero && rnd == RoundingMode.TowardNegative)), prec);
         }
         BigInt acc = BigInt.Zero;
         for (int i = 0; i < n; i++)
         {
-            Real v = values[i];
+            BigFloat v = values[i];
             if (v._kind == Kind.Normal)
             {
                 BigInt m = v._man.ShiftLeft(v._exp - minExp);
@@ -894,7 +894,7 @@ public readonly partial struct Real
         }
         if (acc.IsZero)
         {
-            return MakeZero(rnd == RealRounding.TowardNegative, prec);
+            return MakeZero(rnd == RoundingMode.TowardNegative, prec);
         }
         return Round(acc.Abs(), minExp, sticky: false, acc.Sign < 0, prec, rnd, out _);
     }
@@ -904,14 +904,14 @@ public readonly partial struct Real
     // ---------------------------------------------------------------
 
     /// <summary>m * 2^exponent rounded to the given precision (mpfr_set_z_2exp).</summary>
-    public static Real FromBigInt(BigInt m, long exponent, int precision, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat FromBigInt(BigInt m, long exponent, int precision, RoundingMode rounding = RoundingMode.NearestEven)
     {
         ValidatePrecision(precision);
         return m.IsZero ? MakeZero(negative: false, precision) : Round(m.Abs(), exponent, sticky: false, m.Sign < 0, precision, rounding, out _);
     }
 
     /// <summary>A rational number correctly rounded (mpfr_set_q).</summary>
-    public static Real FromRational(BigRational q, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat FromRational(BigRational q, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, DefaultPrecision);
         BigInt num = q.Numerator, den = q.Denominator;

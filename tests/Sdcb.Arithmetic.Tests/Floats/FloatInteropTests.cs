@@ -14,7 +14,7 @@ public class FloatInteropTests
         {
             DoubleDouble dd = new(rng.NextDouble() * Math.ScaleB(1.0, rng.Next(-900, 900)), rng.NextDouble() * Math.ScaleB(1.0, rng.Next(-1000, -60)));
             QuadDouble qd = dd;
-            Assert.Equal(0, ((Real)dd).CompareTo((Real)qd));
+            Assert.Equal(0, ((BigFloat)dd).CompareTo((BigFloat)qd));
             Assert.Equal(dd, (DoubleDouble)qd);
         }
     }
@@ -27,8 +27,8 @@ public class FloatInteropTests
         {
             QuadDouble q = QuadDouble.Sqrt(new QuadDouble(1.0 + rng.NextDouble() * 1e6));
             DoubleDouble d = (DoubleDouble)q;
-            Real err = Real.Abs(Real.Subtract(d, q, P) / (Real)q);
-            Assert.True(err < Real.FromBigInt(BigInt.One, -105, 2), $"{q}");
+            BigFloat err = BigFloat.Abs(BigFloat.Subtract(d, q, P) / (BigFloat)q);
+            Assert.True(err < BigFloat.FromBigInt(BigInt.One, -105, 2), $"{q}");
         }
     }
 
@@ -40,7 +40,7 @@ public class FloatInteropTests
         {
             DoubleDouble dd = new(rng.NextDouble() * Math.ScaleB(1.0, rng.Next(-1000, 1000)), rng.NextDouble() * Math.ScaleB(1.0, rng.Next(-1074, -900)));
             Float128 f = (Float128)dd;
-            Assert.Equal(Float128.FromReal(dd).ToBits(), f.ToBits());
+            Assert.Equal(Float128.FromBigFloat(dd).ToBits(), f.ToBits());
         }
     }
 
@@ -52,7 +52,7 @@ public class FloatInteropTests
         {
             Float128 f = Float128.Sqrt((Float128)(1.0 + rng.NextDouble())) * Math.ScaleB(1.0, rng.Next(-900, 900));
             QuadDouble q = (QuadDouble)f;
-            Assert.Equal(0, ((Real)f).CompareTo((Real)q));
+            Assert.Equal(0, ((BigFloat)f).CompareTo((BigFloat)q));
             Assert.Equal(f.ToBits(), ((Float128)q).ToBits());
         }
     }
@@ -63,8 +63,8 @@ public class FloatInteropTests
         Float128 f = Float128.Sqrt(2);
         DoubleDouble d = (DoubleDouble)f;
         Assert.Equal((double)f, d.Hi);
-        Real err = Real.Abs(Real.Subtract(d, f, P));
-        Assert.True(err < Real.FromBigInt(BigInt.One, -105, 2));
+        BigFloat err = BigFloat.Abs(BigFloat.Subtract(d, f, P));
+        Assert.True(err < BigFloat.FromBigInt(BigInt.One, -105, 2));
     }
 
     [Fact]

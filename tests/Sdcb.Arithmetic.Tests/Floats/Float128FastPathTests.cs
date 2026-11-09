@@ -5,13 +5,13 @@ using Xunit.Abstractions;
 namespace Sdcb.Arithmetic.Tests;
 
 /// <summary>
-/// The triple-double fast path of the Float128 elementary functions: bit-exact agreement with the Real oracle in
+/// The triple-double fast path of the Float128 elementary functions: bit-exact agreement with the BigFloat oracle in
 /// all five rounding modes on random and hard inputs, fallback rates, and kernel errors against their bounds.
 /// </summary>
 public class Float128FastPathTests(ITestOutputHelper output)
 {
-    private static readonly RealRounding[] Modes =
-        [RealRounding.NearestEven, RealRounding.TowardZero, RealRounding.TowardPositive, RealRounding.TowardNegative, RealRounding.AwayFromZero];
+    private static readonly RoundingMode[] Modes =
+        [RoundingMode.NearestEven, RoundingMode.TowardZero, RoundingMode.TowardPositive, RoundingMode.TowardNegative, RoundingMode.AwayFromZero];
 
     private static readonly UInt128 Sign = UInt128.One << 127;
     private static readonly UInt128 QNaN = new(0x7FFF_8000_0000_0000, 0);
@@ -24,7 +24,7 @@ public class Float128FastPathTests(ITestOutputHelper output)
     // ---------------------------------------------------------------
 
     private delegate bool KernelHook(int function, Float128 x, Float128 y, out double h, out double m, out double l, out int scale, out double eps);
-    private delegate bool TryHook(int function, Float128 x, Float128 y, RealRounding rounding, out Float128 result);
+    private delegate bool TryHook(int function, Float128 x, Float128 y, RoundingMode rounding, out Float128 result);
 
     private static readonly KernelHook Kernel = typeof(Float128).GetMethod("FastPathKernel", BindingFlags.NonPublic | BindingFlags.Static)!
         .CreateDelegate<KernelHook>();
@@ -34,21 +34,21 @@ public class Float128FastPathTests(ITestOutputHelper output)
     // Indices of Float128.FastFunction.
     private enum Fn { Exp, Exp2, Log, Log2, Log10, Pow, Sin, Cos, Tan, Asin, Acos, Atan, Atan2, Sinh, Cosh, Tanh }
 
-    private sealed record Case(Fn Fn, Func<Float128, Float128, RealRounding, Float128> Api, Func<Real, Real, int, RealRounding, Real> Oracle,
+    private sealed record Case(Fn Fn, Func<Float128, Float128, RoundingMode, Float128> Api, Func<BigFloat, BigFloat, int, RoundingMode, BigFloat> Oracle,
         Func<Random, (Float128 X, Float128 Y)> Gen);
 
     // ---------------------------------------------------------------
-    // Oracle: Real at 160 bits toward zero and away from zero; equal results are exact, otherwise the
+    // Oracle: BigFloat at 160 bits toward zero and away from zero; equal results are exact, otherwise the
     // toward-zero value with its last bit forced to 1 is the round-to-odd value, whose rounding to binary128
     // is the correctly rounded result in every mode (as in Float128Tests).
     // ---------------------------------------------------------------
 
     private const int OracleBits = 160;
 
-    private static UInt128[] OracleAllModes(Func<int, RealRounding, Real> f)
+    private static UInt128[] OracleAllModes(Func<int, RoundingMode, BigFloat> f)
     {
         var r = new UInt128[Modes.Length];
-        Real z = f(OracleBits, RealRounding.TowardZero);
+        BigFloat z = f(OracleBits, RoundingMode.TowardZero);
         if (z.IsZero || !z.IsNumber)
         {
             for (int i = 0; i < Modes.Length; i++)
@@ -57,12 +57,12 @@ public class Float128FastPathTests(ITestOutputHelper output)
             }
             return r;
         }
-        Real a = f(OracleBits, RealRounding.AwayFromZero);
-        Real v = z;
+        BigFloat a = f(OracleBits, RoundingMode.AwayFromZero);
+        BigFloat v = z;
         if (a.CompareTo(z) != 0)
         {
             BigInt m = z.Mantissa | BigInt.One;
-            v = Real.FromBigInt(z.SignBit ? -m : m, z.Exponent, OracleBits);
+            v = BigFloat.FromBigInt(z.SignBit ? -m : m, z.Exponent, OracleBits);
         }
         for (int i = 0; i < Modes.Length; i++)
         {
@@ -130,49 +130,49 @@ public class Float128FastPathTests(ITestOutputHelper output)
     private static Float128 NearMultipleOfPiHalf(Random rng, int maxK)
     {
         int k = rng.Next(-maxK, maxK + 1);
-        Float128 v = F(Real.Multiply(Real.Pi(400), Real.FromDouble(k / 2.0), 400).ToBinary128Bits());
+        Float128 v = F(BigFloat.Multiply(BigFloat.Pi(400), BigFloat.FromDouble(k / 2.0), 400).ToBinary128Bits());
         return k == 0 ? RandomExp(rng, -200, -10) : Near(rng, v);
     }
 
-    private static Real R(Float128 x) => x.ToReal();
+    private static BigFloat R(Float128 x) => x.ToBigFloat();
 
     private static readonly Case[] Cases =
     [
-        new(Fn.Exp, (x, _, m) => Float128.Exp(x, m), (x, _, p, m) => Real.Exp(x, p, m),
+        new(Fn.Exp, (x, _, m) => Float128.Exp(x, m), (x, _, p, m) => BigFloat.Exp(x, p, m),
             rng => (Pick(rng, () => Uniform(rng, -60, 60), () => Uniform(rng, -11350, 11350), () => RandomExp(rng, -200, 13)), 0)),
-        new(Fn.Exp2, (x, _, m) => Float128.Exp2(x, m), (x, _, p, m) => Real.Exp2(x, p, m),
+        new(Fn.Exp2, (x, _, m) => Float128.Exp2(x, m), (x, _, p, m) => BigFloat.Exp2(x, p, m),
             rng => (Pick(rng, () => Uniform(rng, -100, 100), () => Uniform(rng, -16380, 16380), () => RandomExp(rng, -200, 13)), 0)),
-        new(Fn.Log, (x, _, m) => Float128.Log(x, m), (x, _, p, m) => Real.Log(x, p, m),
+        new(Fn.Log, (x, _, m) => Float128.Log(x, m), (x, _, p, m) => BigFloat.Log(x, p, m),
             rng => (Pick(rng, () => RandomExp(rng, -16382, 16383, false), () => Uniform(rng, 0.5, 2), () => 1 + RandomExp(rng, -112, -8)), 0)),
-        new(Fn.Log2, (x, _, m) => Float128.Log2(x, m), (x, _, p, m) => Real.Log2(x, p, m),
+        new(Fn.Log2, (x, _, m) => Float128.Log2(x, m), (x, _, p, m) => BigFloat.Log2(x, p, m),
             rng => (Pick(rng, () => RandomExp(rng, -16382, 16383, false), () => Uniform(rng, 0.5, 2), () => 1 + RandomExp(rng, -112, -8)), 0)),
-        new(Fn.Log10, (x, _, m) => Float128.Log10(x, m), (x, _, p, m) => Real.Log10(x, p, m),
+        new(Fn.Log10, (x, _, m) => Float128.Log10(x, m), (x, _, p, m) => BigFloat.Log10(x, p, m),
             rng => (Pick(rng, () => RandomExp(rng, -16382, 16383, false), () => Uniform(rng, 0.5, 2), () => 1 + RandomExp(rng, -112, -8)), 0)),
-        new(Fn.Pow, Float128.Pow, Real.Pow,
+        new(Fn.Pow, Float128.Pow, BigFloat.Pow,
             rng =>
             {
                 Float128 x = Pick(rng, () => Uniform(rng, 0, 100), () => RandomExp(rng, -100, 100, false), () => 1 + RandomExp(rng, -60, -2));
                 return (x, Pick(rng, () => Uniform(rng, -40, 40), () => RandomExp(rng, -30, 10), () => (Float128)rng.Next(-60, 61)));
             }),
-        new(Fn.Sin, (x, _, m) => Float128.Sin(x, m), (x, _, p, m) => Real.Sin(x, p, m),
+        new(Fn.Sin, (x, _, m) => Float128.Sin(x, m), (x, _, p, m) => BigFloat.Sin(x, p, m),
             rng => (Pick(rng, () => Uniform(rng, -10, 10), () => RandomExp(rng, -200, 29), () => NearMultipleOfPiHalf(rng, 1000)), 0)),
-        new(Fn.Cos, (x, _, m) => Float128.Cos(x, m), (x, _, p, m) => Real.Cos(x, p, m),
+        new(Fn.Cos, (x, _, m) => Float128.Cos(x, m), (x, _, p, m) => BigFloat.Cos(x, p, m),
             rng => (Pick(rng, () => Uniform(rng, -10, 10), () => RandomExp(rng, -200, 29), () => NearMultipleOfPiHalf(rng, 1000)), 0)),
-        new(Fn.Tan, (x, _, m) => Float128.Tan(x, m), (x, _, p, m) => Real.Tan(x, p, m),
+        new(Fn.Tan, (x, _, m) => Float128.Tan(x, m), (x, _, p, m) => BigFloat.Tan(x, p, m),
             rng => (Pick(rng, () => Uniform(rng, -10, 10), () => RandomExp(rng, -200, 29), () => NearMultipleOfPiHalf(rng, 1000)), 0)),
-        new(Fn.Asin, (x, _, m) => Float128.Asin(x, m), (x, _, p, m) => Real.Asin(x, p, m),
+        new(Fn.Asin, (x, _, m) => Float128.Asin(x, m), (x, _, p, m) => BigFloat.Asin(x, p, m),
             rng => (Pick(rng, () => Uniform(rng, -1, 1), () => RandomExp(rng, -200, -1), () => (rng.Next(2) == 0 ? 1 : -1) * (1 - RandomExp(rng, -113, -2, false))), 0)),
-        new(Fn.Acos, (x, _, m) => Float128.Acos(x, m), (x, _, p, m) => Real.Acos(x, p, m),
+        new(Fn.Acos, (x, _, m) => Float128.Acos(x, m), (x, _, p, m) => BigFloat.Acos(x, p, m),
             rng => (Pick(rng, () => Uniform(rng, -1, 1), () => RandomExp(rng, -200, -1), () => (rng.Next(2) == 0 ? 1 : -1) * (1 - RandomExp(rng, -113, -2, false))), 0)),
-        new(Fn.Atan, (x, _, m) => Float128.Atan(x, m), (x, _, p, m) => Real.Atan(x, p, m),
+        new(Fn.Atan, (x, _, m) => Float128.Atan(x, m), (x, _, p, m) => BigFloat.Atan(x, p, m),
             rng => (Pick(rng, () => Uniform(rng, -10, 10), () => RandomExp(rng, -200, 200), () => Uniform(rng, -1.01, 1.01)), 0)),
-        new(Fn.Atan2, Float128.Atan2, Real.Atan2,
+        new(Fn.Atan2, Float128.Atan2, BigFloat.Atan2,
             rng => (Pick(rng, () => Uniform(rng, -100, 100), () => RandomExp(rng, -300, 300)), Pick(rng, () => Uniform(rng, -100, 100), () => RandomExp(rng, -300, 300)))),
-        new(Fn.Sinh, (x, _, m) => Float128.Sinh(x, m), (x, _, p, m) => Real.Sinh(x, p, m),
+        new(Fn.Sinh, (x, _, m) => Float128.Sinh(x, m), (x, _, p, m) => BigFloat.Sinh(x, p, m),
             rng => (Pick(rng, () => Uniform(rng, -20, 20), () => Uniform(rng, -1, 1), () => RandomExp(rng, -200, 13)), 0)),
-        new(Fn.Cosh, (x, _, m) => Float128.Cosh(x, m), (x, _, p, m) => Real.Cosh(x, p, m),
+        new(Fn.Cosh, (x, _, m) => Float128.Cosh(x, m), (x, _, p, m) => BigFloat.Cosh(x, p, m),
             rng => (Pick(rng, () => Uniform(rng, -20, 20), () => Uniform(rng, -1, 1), () => RandomExp(rng, -200, 13)), 0)),
-        new(Fn.Tanh, (x, _, m) => Float128.Tanh(x, m), (x, _, p, m) => Real.Tanh(x, p, m),
+        new(Fn.Tanh, (x, _, m) => Float128.Tanh(x, m), (x, _, p, m) => BigFloat.Tanh(x, p, m),
             rng => (Pick(rng, () => Uniform(rng, -20, 20), () => Uniform(rng, -1, 1), () => RandomExp(rng, -200, 6)), 0)),
     ];
 
@@ -202,11 +202,11 @@ public class Float128FastPathTests(ITestOutputHelper output)
         for (int i = 0; i < RandomCount; i++)
         {
             (Float128 x, Float128 y) = c.Gen(rng);
-            Real rx = R(x), ry = R(y);
+            BigFloat rx = R(x), ry = R(y);
             UInt128[] expected = OracleAllModes((p, m) => c.Oracle(rx, ry, p, m));
             for (int k = 0; k < Modes.Length; k++)
             {
-                RealRounding mode = Modes[k];
+                RoundingMode mode = Modes[k];
                 string ctx = $"{c.Fn}({H(x.ToBits())}, {H(y.ToBits())}) {mode}";
                 if (TryFast(fn, x, y, mode, out Float128 fast))
                 {
@@ -231,7 +231,7 @@ public class Float128FastPathTests(ITestOutputHelper output)
     }
 
     // ---------------------------------------------------------------
-    // Kernel error against Real at 300 bits, relative to the bound used by the rounding test
+    // Kernel error against BigFloat at 300 bits, relative to the bound used by the rounding test
     // ---------------------------------------------------------------
 
     private const int ErrorSamples = 4000;
@@ -250,9 +250,9 @@ public class Float128FastPathTests(ITestOutputHelper output)
             {
                 continue;
             }
-            Real exact = c.Oracle(R(x), R(y), 300, RealRounding.NearestEven);
-            Real approx = Real.Add(Real.Add(Real.FromDouble(h), Real.FromDouble(m), 400), Real.FromDouble(l), 400).ShiftLeft(scale);
-            double rel = Math.Abs(Real.Divide(Real.Subtract(approx, exact, 400), exact, 64).ToDouble());
+            BigFloat exact = c.Oracle(R(x), R(y), 300, RoundingMode.NearestEven);
+            BigFloat approx = BigFloat.Add(BigFloat.Add(BigFloat.FromDouble(h), BigFloat.FromDouble(m), 400), BigFloat.FromDouble(l), 400).ShiftLeft(scale);
+            double rel = Math.Abs(BigFloat.Divide(BigFloat.Subtract(approx, exact, 400), exact, 64).ToDouble());
             worst = Math.Max(worst, rel);
             worstRatio = Math.Max(worstRatio, rel / eps);
             minEps = Math.Min(minEps, eps);
@@ -310,7 +310,7 @@ public class Float128FastPathTests(ITestOutputHelper output)
     // ---------------------------------------------------------------
     private static void CheckAllModes(Case c, Float128 x, Float128 y)
     {
-        Real rx = R(x), ry = R(y);
+        BigFloat rx = R(x), ry = R(y);
         UInt128[] expected = OracleAllModes((p, m) => c.Oracle(rx, ry, p, m));
         for (int k = 0; k < Modes.Length; k++)
         {
@@ -341,8 +341,8 @@ public class Float128FastPathTests(ITestOutputHelper output)
             for (int k = 1; k < Modes.Length; k++)
             {
                 // Exactly representable results lie on a boundary in the directed modes: the fast path must decline.
-                Real rx = R(x), ry = R(y);
-                bool isExact = c.Oracle(rx, ry, OracleBits, RealRounding.TowardZero).CompareTo(c.Oracle(rx, ry, OracleBits, RealRounding.AwayFromZero)) == 0;
+                BigFloat rx = R(x), ry = R(y);
+                bool isExact = c.Oracle(rx, ry, OracleBits, RoundingMode.TowardZero).CompareTo(c.Oracle(rx, ry, OracleBits, RoundingMode.AwayFromZero)) == 0;
                 if (isExact)
                 {
                     Assert.False(TryFast((int)fn, x, y, Modes[k], out _), $"{fn}({x}, {y}) {Modes[k]} took the fast path");
@@ -426,12 +426,12 @@ public class Float128FastPathTests(ITestOutputHelper output)
     {
         // The closest binary128 neighbours of kπ/2 (and kπ/256 table points) for k up to large values.
         Random rng = new(78);
-        Real pi = Real.Pi(600);
+        BigFloat pi = BigFloat.Pi(600);
         foreach (long k in new long[] { 1, 2, 3, 4, 5, 7, 8, 100, 255, 256, 257, 1000, 12345, 1_000_000, 123_456_789, 600_000_000 })
         {
             foreach (int denom in new[] { 2, 256 })
             {
-                Real v = Real.Divide(Real.Multiply(pi, Real.FromBigInt(new BigInt(k)), 600), Real.FromDouble(denom), 600);
+                BigFloat v = BigFloat.Divide(BigFloat.Multiply(pi, BigFloat.FromBigInt(new BigInt(k)), 600), BigFloat.FromDouble(denom), 600);
                 Float128 c = Float128.FromBits(v.ToBinary128Bits());
                 foreach (Float128 x in new[] { c, Float128.BitIncrement(c), Float128.BitDecrement(c), Near(rng, c) })
                 {
@@ -464,8 +464,8 @@ public class Float128FastPathTests(ITestOutputHelper output)
     [Fact]
     public void InvalidRoundingModeStillThrows()
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => Float128.Exp(1, (RealRounding)17));
-        Assert.Throws<ArgumentOutOfRangeException>(() => Float128.Sin(1, (RealRounding)17));
-        Assert.Throws<ArgumentOutOfRangeException>(() => Float128.Pow(3, (Float128)0.7, (RealRounding)17));
+        Assert.Throws<ArgumentOutOfRangeException>(() => Float128.Exp(1, (RoundingMode)17));
+        Assert.Throws<ArgumentOutOfRangeException>(() => Float128.Sin(1, (RoundingMode)17));
+        Assert.Throws<ArgumentOutOfRangeException>(() => Float128.Pow(3, (Float128)0.7, (RoundingMode)17));
     }
 }

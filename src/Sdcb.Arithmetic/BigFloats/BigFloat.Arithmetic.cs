@@ -3,44 +3,44 @@ using Sdcb.Arithmetic.Core;
 
 namespace Sdcb.Arithmetic;
 
-public readonly partial struct Real
+public readonly partial struct BigFloat
 {
     // ---------------------------------------------------------------
     // Sign operations (exact)
     // ---------------------------------------------------------------
 
-    public static Real operator -(Real v) => new(v._man, v._exp, v._prec, v._kind, !v.IsNeg);
-    public static Real operator +(Real v) => v;
+    public static BigFloat operator -(BigFloat v) => new(v._man, v._exp, v._prec, v._kind, !v.IsNeg);
+    public static BigFloat operator +(BigFloat v) => v;
 
     /// <summary>Absolute value (mpfr_abs; exact here since precision is kept).</summary>
-    public Real Abs() => new(_man, _exp, _prec, _kind, negative: false);
+    public BigFloat Abs() => new(_man, _exp, _prec, _kind, negative: false);
 
     /// <summary>Returns a value with the magnitude of this and the sign of source (mpfr_copysign).</summary>
-    public Real CopySign(Real source) => new(_man, _exp, _prec, _kind, source.IsNeg);
+    public BigFloat CopySign(BigFloat source) => new(_man, _exp, _prec, _kind, source.IsNeg);
 
     // ---------------------------------------------------------------
     // Addition / subtraction
     // ---------------------------------------------------------------
 
-    public static Real operator +(Real a, Real b) => Add(a, b, 0, RealRounding.NearestEven);
-    public static Real operator -(Real a, Real b) => Subtract(a, b, 0, RealRounding.NearestEven);
+    public static BigFloat operator +(BigFloat a, BigFloat b) => Add(a, b, 0, RoundingMode.NearestEven);
+    public static BigFloat operator -(BigFloat a, BigFloat b) => Subtract(a, b, 0, RoundingMode.NearestEven);
 
-    public static Real Add(Real a, Real b, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Add(BigFloat a, BigFloat b, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
         => Add(a, b, precision, rounding, out _);
 
-    public static Real Add(Real a, Real b, int precision, RealRounding rounding, out int ternary)
+    public static BigFloat Add(BigFloat a, BigFloat b, int precision, RoundingMode rounding, out int ternary)
         => AddCore(a, b, negateB: false, ResolvePrec(a, b, precision), rounding, out ternary);
 
-    public static Real Subtract(Real a, Real b, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Subtract(BigFloat a, BigFloat b, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
         => Subtract(a, b, precision, rounding, out _);
 
-    public static Real Subtract(Real a, Real b, int precision, RealRounding rounding, out int ternary)
+    public static BigFloat Subtract(BigFloat a, BigFloat b, int precision, RoundingMode rounding, out int ternary)
         => AddCore(a, b, negateB: true, ResolvePrec(a, b, precision), rounding, out ternary);
 
-    private static int ResolvePrec(Real a, Real b, int precision)
+    private static int ResolvePrec(BigFloat a, BigFloat b, int precision)
         => ResolvePrecision(precision, Math.Max(a.Precision, b.Precision));
 
-    private static Real AddCore(Real a, Real b, bool negateB, int prec, RealRounding rnd, out int ternary)
+    private static BigFloat AddCore(BigFloat a, BigFloat b, bool negateB, int prec, RoundingMode rnd, out int ternary)
     {
         ternary = 0;
         bool bNeg = b.IsNeg ^ negateB;
@@ -60,7 +60,7 @@ public readonly partial struct Real
         if (a._kind == Kind.Zero && b._kind == Kind.Zero)
         {
             // (+0) + (-0) = +0 except toward -inf; (-0) + (-0) = -0.
-            bool neg = a.IsNeg && bNeg || (a.IsNeg != bNeg && rnd == RealRounding.TowardNegative);
+            bool neg = a.IsNeg && bNeg || (a.IsNeg != bNeg && rnd == RoundingMode.TowardNegative);
             return MakeZero(neg, prec);
         }
         if (a._kind == Kind.Zero)
@@ -101,7 +101,7 @@ public readonly partial struct Real
             }
             if (xa == xb)
             {
-                return MakeZero(rnd == RealRounding.TowardNegative, prec);
+                return MakeZero(rnd == RoundingMode.TowardNegative, prec);
             }
             return xa > xb
                 ? RoundSmall(xa - xb, f0, sticky: false, aNeg, prec, rnd, out ternary)
@@ -116,12 +116,12 @@ public readonly partial struct Real
     // Multiplication
     // ---------------------------------------------------------------
 
-    public static Real operator *(Real a, Real b) => Multiply(a, b, 0, RealRounding.NearestEven);
+    public static BigFloat operator *(BigFloat a, BigFloat b) => Multiply(a, b, 0, RoundingMode.NearestEven);
 
-    public static Real Multiply(Real a, Real b, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Multiply(BigFloat a, BigFloat b, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
         => Multiply(a, b, precision, rounding, out _);
 
-    public static Real Multiply(Real a, Real b, int precision, RealRounding rounding, out int ternary)
+    public static BigFloat Multiply(BigFloat a, BigFloat b, int precision, RoundingMode rounding, out int ternary)
     {
         int prec = ResolvePrec(a, b, precision);
         ternary = 0;
@@ -150,7 +150,7 @@ public readonly partial struct Real
     }
 
     /// <summary>Squares the value (mpfr_sqr).</summary>
-    public static Real Square(Real a, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Square(BigFloat a, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         if (a._kind != Kind.Normal)
         {
@@ -164,12 +164,12 @@ public readonly partial struct Real
     // Division
     // ---------------------------------------------------------------
 
-    public static Real operator /(Real a, Real b) => Divide(a, b, 0, RealRounding.NearestEven);
+    public static BigFloat operator /(BigFloat a, BigFloat b) => Divide(a, b, 0, RoundingMode.NearestEven);
 
-    public static Real Divide(Real a, Real b, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Divide(BigFloat a, BigFloat b, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
         => Divide(a, b, precision, rounding, out _);
 
-    public static Real Divide(Real a, Real b, int precision, RealRounding rounding, out int ternary)
+    public static BigFloat Divide(BigFloat a, BigFloat b, int precision, RoundingMode rounding, out int ternary)
     {
         int prec = ResolvePrec(a, b, precision);
         ternary = 0;
@@ -218,7 +218,7 @@ public readonly partial struct Real
     // ---------------------------------------------------------------
 
     /// <summary>Correctly-rounded square root (mpfr_sqrt).</summary>
-    public static Real Sqrt(Real a, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Sqrt(BigFloat a, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, a.Precision);
         switch (a._kind)
@@ -271,22 +271,22 @@ public readonly partial struct Real
     }
 
     /// <summary>Fused multiply-add a*b + c with a single rounding (mpfr_fma).</summary>
-    public static Real FusedMultiplyAdd(Real a, Real b, Real c, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat FusedMultiplyAdd(BigFloat a, BigFloat b, BigFloat c, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, Math.Max(Math.Max(a.Precision, b.Precision), c.Precision));
         if (a._kind == Kind.Normal && b._kind == Kind.Normal)
         {
             BigInt pm = a._man * b._man;
-            var product = new Real(pm, a._exp + b._exp, (int)pm.GetBitLength(), Kind.Normal, a.IsNeg ^ b.IsNeg);
+            var product = new BigFloat(pm, a._exp + b._exp, (int)pm.GetBitLength(), Kind.Normal, a.IsNeg ^ b.IsNeg);
             return AddCore(product, c, negateB: false, prec, rounding, out _);
         }
         // Fall back through the (special-value-aware) primitive ops.
-        Real p = Multiply(a, b, prec + 8, RealRounding.TowardZero);
+        BigFloat p = Multiply(a, b, prec + 8, RoundingMode.TowardZero);
         return AddCore(p, c, negateB: false, prec, rounding, out _);
     }
 
     /// <summary>Fused multiply-subtract a*b - c (mpfr_fms).</summary>
-    public static Real FusedMultiplySubtract(Real a, Real b, Real c, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat FusedMultiplySubtract(BigFloat a, BigFloat b, BigFloat c, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
         => FusedMultiplyAdd(a, b, -c, precision, rounding);
 
     // ---------------------------------------------------------------
@@ -294,15 +294,15 @@ public readonly partial struct Real
     // ---------------------------------------------------------------
 
     /// <summary>IEEE-style equality (NaN != NaN, -0 == +0).</summary>
-    public static bool operator ==(Real a, Real b) => a.CompareIeee(b) == 0;
-    public static bool operator !=(Real a, Real b) => a.CompareIeee(b) != 0;
-    public static bool operator <(Real a, Real b) => a.CompareIeee(b) is < 0 and > int.MinValue;
-    public static bool operator >(Real a, Real b) => a.CompareIeee(b) is > 0 and < int.MaxValue;
-    public static bool operator <=(Real a, Real b) => a.CompareIeee(b) is <= 0 and > int.MinValue;
-    public static bool operator >=(Real a, Real b) => a.CompareIeee(b) is >= 0 and < int.MaxValue;
+    public static bool operator ==(BigFloat a, BigFloat b) => a.CompareIeee(b) == 0;
+    public static bool operator !=(BigFloat a, BigFloat b) => a.CompareIeee(b) != 0;
+    public static bool operator <(BigFloat a, BigFloat b) => a.CompareIeee(b) is < 0 and > int.MinValue;
+    public static bool operator >(BigFloat a, BigFloat b) => a.CompareIeee(b) is > 0 and < int.MaxValue;
+    public static bool operator <=(BigFloat a, BigFloat b) => a.CompareIeee(b) is <= 0 and > int.MinValue;
+    public static bool operator >=(BigFloat a, BigFloat b) => a.CompareIeee(b) is >= 0 and < int.MaxValue;
 
     /// <summary>Returns int.MinValue/int.MaxValue markers for unordered (NaN) comparisons.</summary>
-    private int CompareIeee(Real other)
+    private int CompareIeee(BigFloat other)
     {
         if (_kind == Kind.NaN || other._kind == Kind.NaN)
         {
@@ -312,7 +312,7 @@ public readonly partial struct Real
     }
 
     /// <summary>Numeric comparison; both operands must not be NaN.</summary>
-    internal static int CompareValues(Real a, Real b)
+    internal static int CompareValues(BigFloat a, BigFloat b)
     {
         int sa = a._kind == Kind.Zero ? 0 : a.IsNeg ? -1 : 1;
         int sb = b._kind == Kind.Zero ? 0 : b.IsNeg ? -1 : 1;
@@ -351,7 +351,7 @@ public readonly partial struct Real
     }
 
     /// <summary>Total-order comparison like double.CompareTo: NaN first, then -inf .. +inf; -0 &lt; +0.</summary>
-    public int CompareTo(Real other)
+    public int CompareTo(BigFloat other)
     {
         bool an = _kind == Kind.NaN, bn = other._kind == Kind.NaN;
         if (an || bn)
@@ -373,12 +373,12 @@ public readonly partial struct Real
     int IComparable.CompareTo(object? obj) => obj switch
     {
         null => 1,
-        Real r => CompareTo(r),
-        _ => throw new ArgumentException("Object must be a Real.", nameof(obj)),
+        BigFloat r => CompareTo(r),
+        _ => throw new ArgumentException("Object must be a BigFloat.", nameof(obj)),
     };
 
     /// <summary>Bit-exact equality including NaN == NaN and -0 != +0 (unlike operator ==).</summary>
-    public bool Equals(Real other)
+    public bool Equals(BigFloat other)
     {
         if (_kind != other._kind || IsNeg != other.IsNeg)
         {
@@ -391,7 +391,7 @@ public readonly partial struct Real
         return _exp == other._exp && _man.Equals(other._man);
     }
 
-    public override bool Equals(object? obj) => obj is Real r && Equals(r);
+    public override bool Equals(object? obj) => obj is BigFloat r && Equals(r);
 
     public override int GetHashCode() => _kind switch
     {
@@ -402,7 +402,7 @@ public readonly partial struct Real
     };
 
     /// <summary>Smaller of two values; NaN if either is NaN unless the other is a number (mpfr_min semantics).</summary>
-    public static Real Min(Real a, Real b)
+    public static BigFloat Min(BigFloat a, BigFloat b)
     {
         if (a._kind == Kind.NaN)
         {
@@ -422,7 +422,7 @@ public readonly partial struct Real
     }
 
     /// <summary>Larger of two values (mpfr_max semantics).</summary>
-    public static Real Max(Real a, Real b)
+    public static BigFloat Max(BigFloat a, BigFloat b)
     {
         if (a._kind == Kind.NaN)
         {
@@ -441,13 +441,13 @@ public readonly partial struct Real
     }
 
     /// <summary>Positive difference: max(a-b, +0) (mpfr_dim).</summary>
-    public static Real PositiveDifference(Real a, Real b, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat PositiveDifference(BigFloat a, BigFloat b, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         if (a._kind == Kind.NaN || b._kind == Kind.NaN)
         {
             return MakeNaN(ResolvePrec(a, b, precision));
         }
-        Real d = Subtract(a, b, precision, rounding);
+        BigFloat d = Subtract(a, b, precision, rounding);
         return d._kind != Kind.NaN && (d._kind == Kind.Zero || d.IsNeg) ? MakeZero(negative: false, d.Precision) : d;
     }
 }

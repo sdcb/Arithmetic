@@ -1,13 +1,13 @@
 namespace Sdcb.Arithmetic;
 
-public readonly partial struct Real
+public readonly partial struct BigFloat
 {
     // ---------------------------------------------------------------
     // Rounding to integer values (mpfr_rint family)
     // ---------------------------------------------------------------
 
     /// <summary>Rounds to an integer value using the given mode (mpfr_rint).</summary>
-    public Real RoundToInteger(RealRounding rounding)
+    public BigFloat RoundToInteger(RoundingMode rounding)
     {
         if (_kind != Kind.Normal)
         {
@@ -29,11 +29,11 @@ public readonly partial struct Real
         }
         bool up = rounding switch
         {
-            RealRounding.NearestEven => guard && (sticky || ip.IsOdd),
-            RealRounding.TowardZero => false,
-            RealRounding.AwayFromZero => true,
-            RealRounding.TowardPositive => !IsNeg,
-            RealRounding.TowardNegative => IsNeg,
+            RoundingMode.NearestEven => guard && (sticky || ip.IsOdd),
+            RoundingMode.TowardZero => false,
+            RoundingMode.AwayFromZero => true,
+            RoundingMode.TowardPositive => !IsNeg,
+            RoundingMode.TowardNegative => IsNeg,
             _ => throw new ArgumentOutOfRangeException(nameof(rounding)),
         };
         if (up)
@@ -43,27 +43,27 @@ public readonly partial struct Real
         return FromIntegerMagnitude(ip, IsNeg);
     }
 
-    private Real FromIntegerMagnitude(BigInt mag, bool neg)
+    private BigFloat FromIntegerMagnitude(BigInt mag, bool neg)
     {
         if (mag.IsZero)
         {
             return MakeZero(neg, Precision);
         }
         // Keep this value's precision; integers within precision stay exact.
-        return Round(mag, 0, sticky: false, neg, Precision, RealRounding.NearestEven, out _);
+        return Round(mag, 0, sticky: false, neg, Precision, RoundingMode.NearestEven, out _);
     }
 
     /// <summary>Largest integer value not above this (mpfr_floor).</summary>
-    public Real Floor() => RoundToInteger(RealRounding.TowardNegative);
+    public BigFloat Floor() => RoundToInteger(RoundingMode.TowardNegative);
 
     /// <summary>Smallest integer value not below this (mpfr_ceil).</summary>
-    public Real Ceiling() => RoundToInteger(RealRounding.TowardPositive);
+    public BigFloat Ceiling() => RoundToInteger(RoundingMode.TowardPositive);
 
     /// <summary>Integer value truncated toward zero (mpfr_trunc).</summary>
-    public Real Truncate() => RoundToInteger(RealRounding.TowardZero);
+    public BigFloat Truncate() => RoundToInteger(RoundingMode.TowardZero);
 
     /// <summary>Nearest integer, ties away from zero (mpfr_round).</summary>
-    internal Real RoundHalfAway()
+    internal BigFloat RoundHalfAway()
     {
         if (_kind != Kind.Normal || _exp >= 0)
         {
@@ -79,10 +79,10 @@ public readonly partial struct Real
     }
 
     /// <summary>Nearest integer, ties to even (mpfr_roundeven).</summary>
-    internal Real RoundHalfEven() => RoundToInteger(RealRounding.NearestEven);
+    internal BigFloat RoundHalfEven() => RoundToInteger(RoundingMode.NearestEven);
 
     /// <summary>Fractional part with the sign of the value (mpfr_frac): x - trunc(x).</summary>
-    public Real FractionalPart(int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public BigFloat FractionalPart(int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         if (_kind != Kind.Normal)
         {
@@ -124,7 +124,7 @@ public readonly partial struct Real
     // ---------------------------------------------------------------
 
     /// <summary>Exact x - trunc(x/y)*y with the sign of x (mpfr_fmod), then rounded.</summary>
-    public static Real TruncatedRemainder(Real x, Real y, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat TruncatedRemainder(BigFloat x, BigFloat y, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrec(x, y, precision);
         if (x._kind == Kind.NaN || y._kind == Kind.NaN || x._kind == Kind.Inf || y._kind == Kind.Zero)
@@ -145,7 +145,7 @@ public readonly partial struct Real
     }
 
     /// <summary>IEEE remainder: x - n*y with n = nearest integer of x/y, ties to even (mpfr_remainder).</summary>
-    public static Real Ieee754Remainder(Real x, Real y, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Ieee754Remainder(BigFloat x, BigFloat y, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrec(x, y, precision);
         if (x._kind == Kind.NaN || y._kind == Kind.NaN || x._kind == Kind.Inf || y._kind == Kind.Zero)
@@ -175,7 +175,7 @@ public readonly partial struct Real
         return Round(r, e, sticky: false, neg, prec, rounding, out _);
     }
 
-    private static bool IsQuotientOdd(Real x, Real y, long e, BigInt r, BigInt yAligned)
+    private static bool IsQuotientOdd(BigFloat x, BigFloat y, long e, BigInt r, BigInt yAligned)
     {
         // q = (|x| - r) / |y| at scale e; oddness of the integer quotient.
         BigInt xa = x._man.ShiftLeft(x._exp - e);
@@ -184,7 +184,7 @@ public readonly partial struct Real
     }
 
     /// <summary>|x| mod |y| computed exactly on aligned mantissas; also returns |y| at the common scale.</summary>
-    private static BigInt ModMagnitude(Real x, Real y, out BigInt yAligned)
+    private static BigInt ModMagnitude(BigFloat x, BigFloat y, out BigInt yAligned)
     {
         long e = Math.Min(x._exp, y._exp);
         // xa = |x| / 2^e; ya = |y| / 2^e. xa can be huge when x.exp >> e; use modular reduction.
@@ -204,7 +204,7 @@ public readonly partial struct Real
     // ---------------------------------------------------------------
 
     /// <summary>The next representable value above this at its precision (mpfr_nextabove).</summary>
-    internal Real NextAbove()
+    internal BigFloat NextAbove()
     {
         switch (_kind)
         {
@@ -224,7 +224,7 @@ public readonly partial struct Real
                 m = m.ShiftRightTruncate(1);
                 e++;
             }
-            return new Real(m, e, _prec, Kind.Normal, negative: false);
+            return new BigFloat(m, e, _prec, Kind.Normal, negative: false);
         }
         else
         {
@@ -239,25 +239,25 @@ public readonly partial struct Real
                 m = (m << 1) + BigInt.One;
                 e--;
             }
-            return new Real(m, e, _prec, Kind.Normal, negative: true);
+            return new BigFloat(m, e, _prec, Kind.Normal, negative: true);
         }
     }
 
     /// <summary>The next representable value below this (mpfr_nextbelow).</summary>
-    internal Real NextBelow() => -(-this).NextAbove();
+    internal BigFloat NextBelow() => -(-this).NextAbove();
 
-    private Real SmallestPositive(bool neg)
+    private BigFloat SmallestPositive(bool neg)
     {
         int p = Precision;
         BigInt m = BigInt.One << (p - 1);
-        return new Real(m, EminUlp, p, Kind.Normal, neg);
+        return new BigFloat(m, EminUlp, p, Kind.Normal, neg);
     }
 
-    private Real LargestNegative()
+    private BigFloat LargestNegative()
     {
         int p = Precision;
         BigInt m = (BigInt.One << p) - BigInt.One;
-        return new Real(m, EmaxUlp - p, p, Kind.Normal, negative: true);
+        return new BigFloat(m, EmaxUlp - p, p, Kind.Normal, negative: true);
     }
 
     /// <summary>Conventional exponent bounds used by nextafter at the edges (exponents are otherwise unbounded).</summary>

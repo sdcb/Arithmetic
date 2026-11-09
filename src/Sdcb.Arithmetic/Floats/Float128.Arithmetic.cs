@@ -47,7 +47,7 @@ public readonly partial struct Float128
     // ---------------------------------------------------------------
 
     /// <summary>Correctly rounded a + b.</summary>
-    public static Float128 Add(Float128 a, Float128 b, RealRounding rounding = RealRounding.NearestEven)
+    public static Float128 Add(Float128 a, Float128 b, RoundingMode rounding = RoundingMode.NearestEven)
     {
         ulong hiA = a.Hi, hiB = b.Hi;
         if (IsNormalHi(hiA) && IsNormalHi(hiB))
@@ -58,7 +58,7 @@ public readonly partial struct Float128
     }
 
     /// <summary>Correctly rounded a - b (exactly a + (-b), signed zeros included).</summary>
-    public static Float128 Subtract(Float128 a, Float128 b, RealRounding rounding = RealRounding.NearestEven)
+    public static Float128 Subtract(Float128 a, Float128 b, RoundingMode rounding = RoundingMode.NearestEven)
     {
         ulong hiA = a.Hi, hiB = b.Hi ^ SignMaskHi;
         if (IsNormalHi(hiA) && IsNormalHi(hiB))
@@ -70,7 +70,7 @@ public readonly partial struct Float128
 
     /// <summary>a + b when an operand is zero, subnormal, infinite or NaN.</summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static Float128 AddSlow(UInt128 uiA, UInt128 uiB, RealRounding rounding)
+    private static Float128 AddSlow(UInt128 uiA, UInt128 uiB, RoundingMode rounding)
     {
         bool signA = SignOf(uiA);
         return signA == SignOf(uiB)
@@ -97,14 +97,14 @@ public readonly partial struct Float128
     /// overflowing results go to the general routine.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static Float128 RoundPackHL(bool sign, int exp, ulong sigHi, ulong sigLo, ulong extra, RealRounding rounding)
+    private static Float128 RoundPackHL(bool sign, int exp, ulong sigHi, ulong sigLo, ulong extra, RoundingMode rounding)
     {
         Debug.Assert(sigHi >> 48 == 1);
         if ((uint)exp < 0x7FFD)
         {
             // A carry out of bit 112 bumps the exponent field and cannot reach ∞ (exp + 2 <= 0x7FFE).
             ulong inc;
-            if (rounding == RealRounding.NearestEven)
+            if (rounding == RoundingMode.NearestEven)
             {
                 inc = extra >> 63;
             }
@@ -114,7 +114,7 @@ public readonly partial struct Float128
             }
             ulong lo = sigLo + inc;
             ulong hi = sigHi + ((ulong)(uint)exp << 48) + (lo < inc ? 1UL : 0UL);
-            if (rounding == RealRounding.NearestEven && extra == 0x8000_0000_0000_0000)
+            if (rounding == RoundingMode.NearestEven && extra == 0x8000_0000_0000_0000)
             {
                 lo &= ~1UL; // tie: round to even
             }
@@ -124,7 +124,7 @@ public readonly partial struct Float128
     }
 
     /// <summary>a + b for normal a and b (signs in the top bits).</summary>
-    private static Float128 AddNormal(ulong hiA, ulong loA, ulong hiB, ulong loB, RealRounding rounding)
+    private static Float128 AddNormal(ulong hiA, ulong loA, ulong hiB, ulong loB, RoundingMode rounding)
     {
         // Order by magnitude so that |a| >= |b|; the result takes the sign of a.
         ulong magA = hiA & ~SignMaskHi, magB = hiB & ~SignMaskHi;
@@ -184,7 +184,7 @@ public readonly partial struct Float128
         }
         if (d == 0 && a1 == b1 && a0 == b0)
         {
-            return ZeroOf(rounding == RealRounding.TowardNegative); // exact cancellation
+            return ZeroOf(rounding == RoundingMode.TowardNegative); // exact cancellation
         }
         // (r1:r0:rx) = (a1:a0:0) - (b1:b0:bx) >= 0
         ulong rx = 0 - bx;
@@ -223,7 +223,7 @@ public readonly partial struct Float128
         return RoundPackHL(signZ, exp - 1 - s, u1, u0, 0, rounding);
     }
 
-    private static Float128 AddMags(UInt128 uiA, UInt128 uiB, bool signZ, RealRounding rounding)
+    private static Float128 AddMags(UInt128 uiA, UInt128 uiB, bool signZ, RoundingMode rounding)
     {
         int expA = ExpOf(uiA), expB = ExpOf(uiB);
         UInt128 sigA = FracOf(uiA), sigB = FracOf(uiB);
@@ -298,7 +298,7 @@ public readonly partial struct Float128
         return RoundPack(signZ, expZ, sigZ, extra, rounding);
     }
 
-    private static Float128 SubMags(UInt128 uiA, UInt128 uiB, bool signZ, RealRounding rounding)
+    private static Float128 SubMags(UInt128 uiA, UInt128 uiB, bool signZ, RoundingMode rounding)
     {
         int expA = ExpOf(uiA), expB = ExpOf(uiB);
         UInt128 sigA = FracOf(uiA) << 4, sigB = FracOf(uiB) << 4;
@@ -369,7 +369,7 @@ public readonly partial struct Float128
             }
             else
             {
-                return ZeroOf(rounding == RealRounding.TowardNegative);
+                return ZeroOf(rounding == RoundingMode.TowardNegative);
             }
         }
         return NormRoundPack(signZ, expZ - 5, sigZ, rounding);
@@ -428,7 +428,7 @@ public readonly partial struct Float128
     }
 
     /// <summary>Correctly rounded a * b.</summary>
-    public static Float128 Multiply(Float128 a, Float128 b, RealRounding rounding = RealRounding.NearestEven)
+    public static Float128 Multiply(Float128 a, Float128 b, RoundingMode rounding = RoundingMode.NearestEven)
     {
         ulong hiA = a.Hi, hiB = b.Hi;
         if (IsNormalHi(hiA) && IsNormalHi(hiB))
@@ -448,7 +448,7 @@ public readonly partial struct Float128
 
     /// <summary>a * b when an operand is zero, subnormal, infinite or NaN.</summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static Float128 MultiplySlow(Float128 a, Float128 b, RealRounding rounding)
+    private static Float128 MultiplySlow(Float128 a, Float128 b, RoundingMode rounding)
     {
         UInt128 uiA = a._bits, uiB = b._bits;
         bool signZ = SignOf(uiA) ^ SignOf(uiB);
@@ -637,7 +637,7 @@ public readonly partial struct Float128
     }
 
     /// <summary>Correctly rounded a / b.</summary>
-    public static Float128 Divide(Float128 a, Float128 b, RealRounding rounding = RealRounding.NearestEven)
+    public static Float128 Divide(Float128 a, Float128 b, RoundingMode rounding = RoundingMode.NearestEven)
     {
         ulong hiA = a.Hi, hiB = b.Hi;
         if (IsNormalHi(hiA) && IsNormalHi(hiB))
@@ -661,7 +661,7 @@ public readonly partial struct Float128
 
     /// <summary>a / b when an operand is zero, subnormal, infinite or NaN.</summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static Float128 DivideSlow(Float128 a, Float128 b, RealRounding rounding)
+    private static Float128 DivideSlow(Float128 a, Float128 b, RoundingMode rounding)
     {
         UInt128 uiA = a._bits, uiB = b._bits;
         bool signZ = SignOf(uiA) ^ SignOf(uiB);
@@ -757,10 +757,10 @@ public readonly partial struct Float128
     }
 
     /// <summary>Correctly rounded square root (nearest-even); sqrt(-0) = -0, NaN for negative operands.</summary>
-    public static Float128 Sqrt(Float128 x) => Sqrt(x, RealRounding.NearestEven);
+    public static Float128 Sqrt(Float128 x) => Sqrt(x, RoundingMode.NearestEven);
 
     /// <summary>Correctly rounded square root; sqrt(-0) = -0, NaN for negative operands.</summary>
-    public static Float128 Sqrt(Float128 x, RealRounding rounding)
+    public static Float128 Sqrt(Float128 x, RoundingMode rounding)
     {
         ulong hi = x.Hi;
         if ((long)hi >= 0 && IsNormalHi(hi))
@@ -774,7 +774,7 @@ public readonly partial struct Float128
     /// sqrt(sig * 2^(exp - 16495)) for the 113-bit significand (sigHi:sigLo) (bit 48 of sigHi set):
     /// Zimmermann's SqrtRem with β = 2^58 on N = sig * 2^k, t - k even and N in [2^230, 2^232).
     /// </summary>
-    private static Float128 SqrtCore(int exp, ulong sigHi, ulong sigLo, RealRounding rounding)
+    private static Float128 SqrtCore(int exp, ulong sigHi, ulong sigLo, RoundingMode rounding)
     {
         int t = exp - 16495;
         int ks = ((t - 118) & 1) == 0 ? 2 : 3; // k - 116
@@ -815,7 +815,7 @@ public readonly partial struct Float128
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static Float128 SqrtSlow(Float128 x, RealRounding rounding)
+    private static Float128 SqrtSlow(Float128 x, RoundingMode rounding)
     {
         UInt128 ui = x._bits;
         bool sign = SignOf(ui);
@@ -847,10 +847,10 @@ public readonly partial struct Float128
 
     /// <summary>(left * right) + addend with a single rounding (nearest-even).</summary>
     public static Float128 FusedMultiplyAdd(Float128 left, Float128 right, Float128 addend) =>
-        FusedMultiplyAdd(left, right, addend, RealRounding.NearestEven);
+        FusedMultiplyAdd(left, right, addend, RoundingMode.NearestEven);
 
     /// <summary>(left * right) + addend with a single rounding.</summary>
-    public static Float128 FusedMultiplyAdd(Float128 left, Float128 right, Float128 addend, RealRounding rounding)
+    public static Float128 FusedMultiplyAdd(Float128 left, Float128 right, Float128 addend, RoundingMode rounding)
     {
         ulong hiA = left.Hi, hiB = right.Hi, hiC = addend.Hi;
         if (IsNormalHi(hiA) && IsNormalHi(hiB) && IsNormalHi(hiC))
@@ -865,7 +865,7 @@ public readonly partial struct Float128
     /// <see cref="FusedMultiplyAddSlow"/> (exact 226-bit product, both terms with two zero low bits).
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)] // large: inlining it starves its own helpers of inlining budget
-    private static Float128 FmaNormal(ulong hiA, ulong loA, ulong hiB, ulong loB, ulong hiC, ulong loC, RealRounding rounding)
+    private static Float128 FmaNormal(ulong hiA, ulong loA, ulong hiB, ulong loB, ulong hiC, ulong loC, RoundingMode rounding)
     {
         bool signP = (long)(hiA ^ hiB) < 0, signC = (long)hiC < 0;
         int expA = (int)(hiA >> 48) & 0x7FFF, expB = (int)(hiB >> 48) & 0x7FFF, expC = (int)(hiC >> 48) & 0x7FFF;
@@ -924,7 +924,7 @@ public readonly partial struct Float128
                 : p0 != c0 ? (p0 > c0 ? 1 : -1) : 0;
             if (cmp == 0)
             {
-                return ZeroOf(rounding == RealRounding.TowardNegative);
+                return ZeroOf(rounding == RoundingMode.TowardNegative);
             }
             if (cmp < 0)
             {
@@ -1032,7 +1032,7 @@ public readonly partial struct Float128
 
     /// <summary>a * b + c when an operand is zero, subnormal, infinite or NaN.</summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static Float128 FusedMultiplyAddSlow(Float128 left, Float128 right, Float128 addend, RealRounding rounding)
+    private static Float128 FusedMultiplyAddSlow(Float128 left, Float128 right, Float128 addend, RoundingMode rounding)
     {
         UInt128 uiA = left._bits, uiB = right._bits, uiC = addend._bits;
         bool signP = SignOf(uiA) ^ SignOf(uiB), signC = SignOf(uiC);
@@ -1066,7 +1066,7 @@ public readonly partial struct Float128
         {
             if (zeroC)
             {
-                return ZeroOf(signP == signC ? signC : rounding == RealRounding.TowardNegative);
+                return ZeroOf(signP == signC ? signC : rounding == RoundingMode.TowardNegative);
             }
             return addend;
         }
@@ -1135,7 +1135,7 @@ public readonly partial struct Float128
             int c = pHi != cHi ? pHi.CompareTo(cHi) : pLo.CompareTo(cLo);
             if (c == 0)
             {
-                return ZeroOf(rounding == RealRounding.TowardNegative);
+                return ZeroOf(rounding == RoundingMode.TowardNegative);
             }
             if (c > 0)
             {
@@ -1224,7 +1224,7 @@ public readonly partial struct Float128
     }
 
     /// <summary>Rounds sign * (hi:lo) * 2^s (nonzero 256-bit magnitude).</summary>
-    private static Float128 RoundPack256(bool sign, UInt128 hi, UInt128 lo, int s, RealRounding rounding)
+    private static Float128 RoundPack256(bool sign, UInt128 hi, UInt128 lo, int s, RoundingMode rounding)
     {
         int lz = hi != 0 ? (int)UInt128.LeadingZeroCount(hi) : 128 + (int)UInt128.LeadingZeroCount(lo);
         Debug.Assert(lz < 256);
@@ -1300,7 +1300,7 @@ public readonly partial struct Float128
             {
                 return a;
             }
-            return NormRoundPack(!signA, expA - 1, (sigB << 1) - sigA, RealRounding.NearestEven);
+            return NormRoundPack(!signA, expA - 1, (sigB << 1) - sigA, RoundingMode.NearestEven);
         }
         UInt128 r = sigA;
         ulong lastQ = 0;
@@ -1351,7 +1351,7 @@ public readonly partial struct Float128
         {
             return ZeroOf(signA);
         }
-        return NormRoundPack(sign, expB - 1, r, RealRounding.NearestEven);
+        return NormRoundPack(sign, expB - 1, r, RoundingMode.NearestEven);
     }
 
     // ---------------------------------------------------------------
@@ -1432,10 +1432,10 @@ public readonly partial struct Float128
     // ---------------------------------------------------------------
 
     /// <summary>x * 2^n, correctly rounded (nearest-even) on underflow/overflow.</summary>
-    public static Float128 ScaleB(Float128 x, int n) => ScaleB(x, n, RealRounding.NearestEven);
+    public static Float128 ScaleB(Float128 x, int n) => ScaleB(x, n, RoundingMode.NearestEven);
 
     /// <summary>x * 2^n, correctly rounded with the given mode on underflow/overflow.</summary>
-    public static Float128 ScaleB(Float128 x, int n, RealRounding rounding)
+    public static Float128 ScaleB(Float128 x, int n, RoundingMode rounding)
     {
         UInt128 ui = x._bits;
         int exp = ExpOf(ui);

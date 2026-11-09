@@ -37,7 +37,7 @@ operation a method corresponds to. The algorithms themselves come from the liter
 | Combinatorics | Binomial via prime factorization | E. E. Kummer, *J. Reine Angew. Math.* 44, 1852 (Kummer's theorem). |
 | Conversion | Divide-and-conquer radix conversion | Brent and Zimmermann, *Modern Computer Arithmetic*, §1.7; Knuth, TAOCP Vol. 2, §4.4. |
 
-## Correctly rounded floating point (`Real`)
+## Correctly rounded floating point (`BigFloat`)
 
 | Area | Reference |
 |---|---|

@@ -5,7 +5,7 @@
     <RootNamespace>Sdcb.Arithmetic</RootNamespace>
     <AssemblyName>Sdcb.Arithmetic</AssemblyName>
     <PackageId>Sdcb.Arithmetic</PackageId>
-    <Version>2.0.0-preview.2</Version>
+    <Version>2.0.0-preview.3</Version>
     <Description>High-performance, pure managed C# arbitrary-precision arithmetic: big integers and rationals plus correctly-rounded arbitrary-precision floating point (five rounding modes, NaN/Inf/signed zero, elementary and transcendental functions), plus allocation-free fixed-width floats: IEEE 754 binary128 (Float128, correctly rounded) and double-double / quad-double (DoubleDouble, QuadDouble). SIMD-accelerated with portable fallbacks, no native dependencies.</Description>
     <Authors>sdcb</Authors>
     <Copyright>Copyright (c) 2026 sdcb</Copyright>

@@ -177,7 +177,7 @@ public readonly partial struct BigRational :
     public static implicit operator BigRational(BigInteger value) => new((BigInt)value);
 
     /// <summary>Exact conversion from decimal.</summary>
-    public static implicit operator BigRational(decimal value) => Real.DecimalToRational(value);
+    public static implicit operator BigRational(decimal value) => BigFloat.DecimalToRational(value);
 
     /// <summary>Exact; throws <see cref="OverflowException"/> for NaN or infinity.</summary>
     public static explicit operator BigRational(float value) => new((double)value);
@@ -204,7 +204,7 @@ public readonly partial struct BigRational :
 
     /// <summary>Nearest decimal (ties to even); throws <see cref="OverflowException"/> when out of range.</summary>
     public static explicit operator decimal(BigRational value) =>
-        Real.TryRationalToDecimal(value._num, value.Denominator, out decimal d) ? d : throw new OverflowException("Value does not fit in Decimal.");
+        BigFloat.TryRationalToDecimal(value._num, value.Denominator, out decimal d) ? d : throw new OverflowException("Value does not fit in Decimal.");
 
     static bool INumberBase<BigRational>.TryConvertFromChecked<TOther>(TOther value, out BigRational result) =>
         TryConvertFrom(value, ConvertMode.Checked, out result);
@@ -279,7 +279,7 @@ public readonly partial struct BigRational :
         }
         if (typeof(TOther) == typeof(decimal))
         {
-            if (!Real.TryRationalToDecimal(value._num, value.Denominator, out decimal d))
+            if (!BigFloat.TryRationalToDecimal(value._num, value.Denominator, out decimal d))
             {
                 if (mode == ConvertMode.Checked)
                 {

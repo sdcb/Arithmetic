@@ -179,26 +179,26 @@ internal static unsafe class Perf
     {
         foreach (int p in (int[])[53, 128, 1024, 4096, 16384])
         {
-            Real x = Real.Sqrt(Real.FromDouble(2.0, p), p), y = Real.Sqrt(Real.FromDouble(3.0, p), p);
+            BigFloat x = BigFloat.Sqrt(BigFloat.FromDouble(2.0, p), p), y = BigFloat.Sqrt(BigFloat.FromDouble(3.0, p), p);
             // Native structs live in unmanaged memory: lambdas capture only the pointers, so
             // the GC can never move what mpfr is writing to.
             Mpfr.MpfrT* mx = Alloc(p), my = Alloc(p), mr = Alloc(p);
             Mpfr.SetStr(ref *mx, x.ToString(), 10, 0);
             Mpfr.SetStr(ref *my, y.ToString(), 10, 0);
-            Real sink;
-            Row("r.add", p, () => sink = Real.Add(x, y, p), () => Mpfr.Add(ref *mr, ref *mx, ref *my, 0));
-            Row("r.mul", p, () => sink = Real.Multiply(x, y, p), () => Mpfr.Mul(ref *mr, ref *mx, ref *my, 0));
-            Row("r.div", p, () => sink = Real.Divide(x, y, p), () => Mpfr.Div(ref *mr, ref *mx, ref *my, 0));
-            Row("r.sqrt", p, () => sink = Real.Sqrt(x, p), () => Mpfr.Sqrt(ref *mr, ref *mx, 0));
+            BigFloat sink;
+            Row("r.add", p, () => sink = BigFloat.Add(x, y, p), () => Mpfr.Add(ref *mr, ref *mx, ref *my, 0));
+            Row("r.mul", p, () => sink = BigFloat.Multiply(x, y, p), () => Mpfr.Mul(ref *mr, ref *mx, ref *my, 0));
+            Row("r.div", p, () => sink = BigFloat.Divide(x, y, p), () => Mpfr.Div(ref *mr, ref *mx, ref *my, 0));
+            Row("r.sqrt", p, () => sink = BigFloat.Sqrt(x, p), () => Mpfr.Sqrt(ref *mr, ref *mx, 0));
             bool big = p > 4096;
             if (!big || s_filter is not null)
             {
-                Unary("r.exp", p, x, Real.Exp, "mpfr_exp", mx, mr);
-                Unary("r.log", p, x, Real.Log, "mpfr_log", mx, mr);
-                Unary("r.sin", p, x, Real.Sin, "mpfr_sin", mx, mr);
-                Unary("r.atan", p, x, Real.Atan, "mpfr_atan", mx, mr);
-                Row("r.pow", p, () => sink = Real.Pow(x, y, p), () => Mpfr.Pow(ref *mr, ref *mx, ref *my, 0));
-                Row("r.pi", p, () => sink = Real.Pi(p + 1), () => { Mpfr.FreeCache(); Mpfr.ConstPi(ref *mr, 0); });
+                Unary("r.exp", p, x, BigFloat.Exp, "mpfr_exp", mx, mr);
+                Unary("r.log", p, x, BigFloat.Log, "mpfr_log", mx, mr);
+                Unary("r.sin", p, x, BigFloat.Sin, "mpfr_sin", mx, mr);
+                Unary("r.atan", p, x, BigFloat.Atan, "mpfr_atan", mx, mr);
+                Row("r.pow", p, () => sink = BigFloat.Pow(x, y, p), () => Mpfr.Pow(ref *mr, ref *mx, ref *my, 0));
+                Row("r.pi", p, () => sink = BigFloat.Pi(p + 1), () => { Mpfr.FreeCache(); Mpfr.ConstPi(ref *mr, 0); });
                 Row("r.tostring", p, () => x.ToString(), () => Mpfr.GetDigits(ref *mx, 0));
             }
             Free(mx); Free(my); Free(mr);
@@ -218,9 +218,9 @@ internal static unsafe class Perf
         NativeMemory.Free(p);
     }
 
-    private static void Unary(string op, int p, Real x, Func<Real, int, RealRounding, Real> ours, string native, Mpfr.MpfrT* px, Mpfr.MpfrT* pr)
+    private static void Unary(string op, int p, BigFloat x, Func<BigFloat, int, RoundingMode, BigFloat> ours, string native, Mpfr.MpfrT* px, Mpfr.MpfrT* pr)
     {
         var f = Mpfr.Unary(native);
-        Row(op, p, () => ours(x, p, RealRounding.NearestEven), () => f(ref *pr, ref *px, 0));
+        Row(op, p, () => ours(x, p, RoundingMode.NearestEven), () => f(ref *pr, ref *px, 0));
     }
 }

@@ -2,8 +2,8 @@ using System.Diagnostics;
 
 namespace Sdcb.Arithmetic;
 
-/// <summary>Rounding modes for <see cref="Real"/> operations (MPFR's mpfr_rnd_t).</summary>
-public enum RealRounding
+/// <summary>Rounding modes for <see cref="BigFloat"/> operations (MPFR's mpfr_rnd_t).</summary>
+public enum RoundingMode
 {
     /// <summary>Round to nearest, ties to even (RNDN, IEEE default).</summary>
     NearestEven = 0,
@@ -25,12 +25,12 @@ public enum RealRounding
 /// The significand of a finite nonzero value always has exactly Precision bits
 /// (top bit set): value = Sign * Mantissa * 2^Exponent.
 /// </summary>
-public readonly partial struct Real :
-    IEquatable<Real>,
-    IComparable<Real>,
+public readonly partial struct BigFloat :
+    IEquatable<BigFloat>,
+    IComparable<BigFloat>,
     IComparable,
     ISpanFormattable,
-    ISpanParsable<Real>
+    ISpanParsable<BigFloat>
 {
     internal const int MinPrecision = 2;
     internal const int MaxPrecision = int.MaxValue / 64;
@@ -63,7 +63,7 @@ public readonly partial struct Real :
     private readonly Kind _kind;
     private readonly sbyte _neg;   // 1 when the sign bit is set
 
-    internal Real(BigInt man, long exp, int prec, Kind kind, bool negative)
+    internal BigFloat(BigInt man, long exp, int prec, Kind kind, bool negative)
     {
         Debug.Assert(kind != Kind.Normal || (man.Sign > 0 && man.GetBitLength() == prec));
         _man = man;
@@ -122,15 +122,15 @@ public readonly partial struct Real :
     // Special values
     // ---------------------------------------------------------------
 
-    public static Real NaN => new(default, 0, 0, Kind.NaN, negative: false);
-    public static Real PositiveInfinity => new(default, 0, 0, Kind.Inf, negative: false);
-    public static Real NegativeInfinity => new(default, 0, 0, Kind.Inf, negative: true);
-    public static Real Zero => default;
-    public static Real NegativeZero => new(default, 0, 0, Kind.Zero, negative: true);
-    public static Real One => FromBigInt(BigInt.One, 0);
-    public static Real Two => FromBigInt(BigInt.Two, 0);
-    public static Real MinusOne => FromBigInt(BigInt.MinusOne, 0);
-    public static Real Half => FromBigInt(BigInt.One, 0).ShiftRight(1);
+    public static BigFloat NaN => new(default, 0, 0, Kind.NaN, negative: false);
+    public static BigFloat PositiveInfinity => new(default, 0, 0, Kind.Inf, negative: false);
+    public static BigFloat NegativeInfinity => new(default, 0, 0, Kind.Inf, negative: true);
+    public static BigFloat Zero => default;
+    public static BigFloat NegativeZero => new(default, 0, 0, Kind.Zero, negative: true);
+    public static BigFloat One => FromBigInt(BigInt.One, 0);
+    public static BigFloat Two => FromBigInt(BigInt.Two, 0);
+    public static BigFloat MinusOne => FromBigInt(BigInt.MinusOne, 0);
+    public static BigFloat Half => FromBigInt(BigInt.One, 0).ShiftRight(1);
 
     /// <summary>An explicit precision, validated to [MinPrecision, MaxPrecision]; 0 selects <paramref name="fallback"/>.</summary>
     internal static int ResolvePrecision(int precision, int fallback)
@@ -149,20 +149,20 @@ public readonly partial struct Real :
         ArgumentOutOfRangeException.ThrowIfGreaterThan(precision, MaxPrecision);
     }
 
-    internal static Real MakeZero(bool negative, int prec) => new(default, 0, prec, Kind.Zero, negative);
-    internal static Real MakeInf(bool negative, int prec) => new(default, 0, prec, Kind.Inf, negative);
-    internal static Real MakeNaN(int prec) => new(default, 0, prec, Kind.NaN, negative: false);
+    internal static BigFloat MakeZero(bool negative, int prec) => new(default, 0, prec, Kind.Zero, negative);
+    internal static BigFloat MakeInf(bool negative, int prec) => new(default, 0, prec, Kind.Inf, negative);
+    internal static BigFloat MakeNaN(int prec) => new(default, 0, prec, Kind.NaN, negative: false);
 
     // ---------------------------------------------------------------
     // The rounding core
     // ---------------------------------------------------------------
 
     /// <summary>
-    /// Builds a Real from sign * (m + θ) * 2^e where m &gt; 0 and θ ∈ (0,1) iff
+    /// Builds a BigFloat from sign * (m + θ) * 2^e where m &gt; 0 and θ ∈ (0,1) iff
     /// sticky, correctly rounded to prec bits. ternary is the sign of
     /// (rounded - exact), 0 when exact (the MPFR ternary value).
     /// </summary>
-    internal static Real Round(BigInt m, long e, bool sticky, bool negative, int prec, RealRounding rnd, out int ternary)
+    internal static BigFloat Round(BigInt m, long e, bool sticky, bool negative, int prec, RoundingMode rnd, out int ternary)
     {
         Debug.Assert(m.Sign > 0);
         if (prec == 0)
@@ -172,11 +172,11 @@ public readonly partial struct Real :
         return RoundLimbs(m.Limbs, e, sticky, negative, prec, rnd, out ternary);
     }
 
-    internal static Real Round(BigInt m, long e, bool sticky, bool negative, int prec, RealRounding rnd)
+    internal static BigFloat Round(BigInt m, long e, bool sticky, bool negative, int prec, RoundingMode rnd)
         => Round(m, e, sticky, negative, prec, rnd, out _);
 
     /// <summary>The rounding core on a 128-bit significand (prec &lt;= 126): one allocation for the result.</summary>
-    internal static Real RoundSmall(UInt128 m, long e, bool sticky, bool negative, int prec, RealRounding rnd, out int ternary)
+    internal static BigFloat RoundSmall(UInt128 m, long e, bool sticky, bool negative, int prec, RoundingMode rnd, out int ternary)
     {
         Debug.Assert(m != 0 && prec >= MinPrecision && prec <= 126);
         int bits = 128 - (int)UInt128.LeadingZeroCount(m);
@@ -198,11 +198,11 @@ public readonly partial struct Real :
         {
             bool roundUp = rnd switch
             {
-                RealRounding.NearestEven => guard && (stickyLow || (m & 1) != 0),
-                RealRounding.TowardZero => false,
-                RealRounding.AwayFromZero => true,
-                RealRounding.TowardPositive => !negative,
-                RealRounding.TowardNegative => negative,
+                RoundingMode.NearestEven => guard && (stickyLow || (m & 1) != 0),
+                RoundingMode.TowardZero => false,
+                RoundingMode.AwayFromZero => true,
+                RoundingMode.TowardPositive => !negative,
+                RoundingMode.TowardNegative => negative,
                 _ => throw new ArgumentOutOfRangeException(nameof(rnd)),
             };
             if (roundUp)
@@ -220,11 +220,11 @@ public readonly partial struct Real :
                 ternary = negative ? 1 : -1;
             }
         }
-        return new Real(new BigInt(m), e, prec, Kind.Normal, negative);
+        return new BigFloat(new BigInt(m), e, prec, Kind.Normal, negative);
     }
 
     /// <summary>Rounds a signed exact value man * 2^e to prec bits.</summary>
-    internal static Real RoundSigned(BigInt man, long e, int prec, RealRounding rnd, out int ternary)
+    internal static BigFloat RoundSigned(BigInt man, long e, int prec, RoundingMode rnd, out int ternary)
     {
         if (man.IsZero)
         {
@@ -238,8 +238,8 @@ public readonly partial struct Real :
     // Construction
     // ---------------------------------------------------------------
 
-    /// <summary>Creates an exact Real from an integer (rounded only if it exceeds the precision).</summary>
-    public static Real FromBigInt(BigInt value, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    /// <summary>Creates an exact BigFloat from an integer (rounded only if it exceeds the precision).</summary>
+    public static BigFloat FromBigInt(BigInt value, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         // Exact by default: use enough precision for the whole integer.
         int prec = ResolvePrecision(precision, (int)Math.Min(Math.Max(DefaultPrecision, value.GetBitLength()), MaxPrecision));
@@ -250,19 +250,19 @@ public readonly partial struct Real :
         return Round(value.Abs(), 0, sticky: false, value.Sign < 0, prec, rounding, out _);
     }
 
-    /// <summary>Creates an exact Real from an integer (precision is max(DefaultPrecision, bit length)).</summary>
-    public Real(long value) : this()
+    /// <summary>Creates an exact BigFloat from an integer (precision is max(DefaultPrecision, bit length)).</summary>
+    public BigFloat(long value) : this()
     {
         this = FromBigInt(new BigInt(value));
     }
 
-    public Real(double value, int precision = 0) : this()
+    public BigFloat(double value, int precision = 0) : this()
     {
         this = FromDouble(value, precision);
     }
 
     /// <summary>Converts a double exactly (a double always fits in 53 bits).</summary>
-    public static Real FromDouble(double value, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat FromDouble(double value, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, DefaultPrecision);
         if (double.IsNaN(value))
@@ -299,7 +299,7 @@ public readonly partial struct Real :
     }
 
     /// <summary>Returns this value rounded to a new precision (mpfr_prec_round).</summary>
-    public Real WithPrecision(int precision, RealRounding rounding = RealRounding.NearestEven)
+    public BigFloat WithPrecision(int precision, RoundingMode rounding = RoundingMode.NearestEven)
     {
         ValidatePrecision(precision);
         return _kind switch
@@ -312,25 +312,25 @@ public readonly partial struct Real :
     }
 
     /// <summary>Exact multiplication by 2^shift (mpfr_mul_2si).</summary>
-    public Real ShiftLeft(long shift) => _kind == Kind.Normal ? new Real(_man, _exp + shift, _prec, _kind, IsNeg) : this;
+    public BigFloat ShiftLeft(long shift) => _kind == Kind.Normal ? new BigFloat(_man, _exp + shift, _prec, _kind, IsNeg) : this;
 
     /// <summary>Exact division by 2^shift (mpfr_div_2si).</summary>
-    public Real ShiftRight(long shift) => ShiftLeft(-shift);
+    public BigFloat ShiftRight(long shift) => ShiftLeft(-shift);
 
     // ---------------------------------------------------------------
     // Conversion to double
     // ---------------------------------------------------------------
 
     /// <summary>Converts to double with the given rounding (mpfr_get_d).</summary>
-    public double ToDouble(RealRounding rounding = RealRounding.NearestEven) => ToIeee(IeeeFormat.Binary64, rounding);
+    public double ToDouble(RoundingMode rounding = RoundingMode.NearestEven) => ToIeee(IeeeFormat.Binary64, rounding);
 
     /// <summary>Converts to float with the given rounding (correctly rounded, including subnormals).</summary>
-    public float ToSingle(RealRounding rounding = RealRounding.NearestEven) => (float)ToIeee(IeeeFormat.Binary32, rounding);
+    public float ToSingle(RoundingMode rounding = RoundingMode.NearestEven) => (float)ToIeee(IeeeFormat.Binary32, rounding);
 
     /// <summary>Converts to System.Half with the given rounding (correctly rounded, including subnormals).</summary>
-    public System.Half ToHalf(RealRounding rounding = RealRounding.NearestEven) => (System.Half)ToIeee(IeeeFormat.Binary16, rounding);
+    public System.Half ToHalf(RoundingMode rounding = RoundingMode.NearestEven) => (System.Half)ToIeee(IeeeFormat.Binary16, rounding);
 
-    private double ToIeee(IeeeFormat format, RealRounding rounding) => _kind switch
+    private double ToIeee(IeeeFormat format, RoundingMode rounding) => _kind switch
     {
         Kind.NaN => double.NaN,
         Kind.Inf => IsNeg ? double.NegativeInfinity : double.PositiveInfinity,
@@ -339,7 +339,7 @@ public readonly partial struct Real :
     };
 
     /// <summary>Truncates to a BigInt (mpfr_get_z with RNDZ); throws on NaN/Inf.</summary>
-    public BigInt ToBigInt(RealRounding rounding = RealRounding.TowardZero)
+    public BigInt ToBigInt(RoundingMode rounding = RoundingMode.TowardZero)
     {
         if (_kind is Kind.NaN or Kind.Inf)
         {
@@ -349,7 +349,7 @@ public readonly partial struct Real :
         {
             return default;
         }
-        Real r = RoundToInteger(rounding);
+        BigFloat r = RoundToInteger(rounding);
         BigInt mag = r._exp >= 0 ? r._man.ShiftLeft(r._exp) : r._man.ShiftRightTruncate(-r._exp);
         return r.IsNeg ? -mag : mag;
     }

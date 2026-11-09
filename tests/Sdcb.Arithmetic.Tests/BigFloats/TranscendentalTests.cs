@@ -24,27 +24,27 @@ public class TranscendentalTests
     [InlineData(-8.0, -3L, -0.5)]
     public void RootN_NegativeK_ExactPowerOfTwo(double x, long k, double expected)
     {
-        foreach (RealRounding rnd in Enum.GetValues<RealRounding>())
+        foreach (RoundingMode rnd in Enum.GetValues<RoundingMode>())
         {
             foreach (int prec in new[] { 2, 53, 300 })
             {
-                Real r = Real.RootN(Real.FromDouble(x, prec), k, prec, rnd);
+                BigFloat r = BigFloat.RootN(BigFloat.FromDouble(x, prec), k, prec, rnd);
                 Assert.Equal(expected, r.ToDouble());
             }
         }
     }
 
-    private static void AssertAgrees(Real actual, string expectedDecimal, int matchDigits)
+    private static void AssertAgrees(BigFloat actual, string expectedDecimal, int matchDigits)
     {
-        Real expected = Real.Parse(expectedDecimal, P + 64);
-        Real diff = Real.Subtract(actual, expected, 64).Abs();
+        BigFloat expected = BigFloat.Parse(expectedDecimal, P + 64);
+        BigFloat diff = BigFloat.Subtract(actual, expected, 64).Abs();
         if (diff.IsZero)
         {
             return;
         }
-        Real scale = expected.Abs();
+        BigFloat scale = expected.Abs();
         // |diff| <= |expected| * 10^-matchDigits
-        Real bound = Real.Multiply(scale, Real.Exp10(Real.FromDouble(-matchDigits, 64), 64), 64);
+        BigFloat bound = BigFloat.Multiply(scale, BigFloat.Exp10(BigFloat.FromDouble(-matchDigits, 64), 64), 64);
         Assert.True(diff.CompareTo(bound) <= 0,
             $"values differ beyond 1e-{matchDigits}: {actual} vs {expectedDecimal[..40]}...");
     }
@@ -52,10 +52,10 @@ public class TranscendentalTests
     [Fact]
     public void Constants_MatchPublishedDigits()
     {
-        AssertAgrees(Real.Pi(P), PiDigits, 150);
-        AssertAgrees(Real.E(P), EDigits, 150);
-        AssertAgrees(Real.Ln2(P), Ln2Digits, 150);
-        AssertAgrees(Real.Sqrt(Real.Two.WithPrecision(P), P), Sqrt2Digits, 150);
+        AssertAgrees(BigFloat.Pi(P), PiDigits, 150);
+        AssertAgrees(BigFloat.E(P), EDigits, 150);
+        AssertAgrees(BigFloat.Ln2(P), Ln2Digits, 150);
+        AssertAgrees(BigFloat.Sqrt(BigFloat.Two.WithPrecision(P), P), Sqrt2Digits, 150);
     }
 
     [Fact]
@@ -66,12 +66,12 @@ public class TranscendentalTests
         {
             double x = (rng.NextDouble() - 0.5) * 40;
             double expected = Math.Exp(x);
-            double actual = Real.Exp(Real.FromDouble(x, 53), 53).ToDouble();
+            double actual = BigFloat.Exp(BigFloat.FromDouble(x, 53), 53).ToDouble();
             AssertUlps(expected, actual, 1);
             if (expected is > 0 and < double.MaxValue)
             {
                 double lx = Math.Abs(x) + 0.001;
-                AssertUlps(Math.Log(lx), Real.Log(Real.FromDouble(lx, 53), 53).ToDouble(), 1);
+                AssertUlps(Math.Log(lx), BigFloat.Log(BigFloat.FromDouble(lx, 53), 53).ToDouble(), 1);
             }
         }
     }
@@ -83,10 +83,10 @@ public class TranscendentalTests
         for (int i = 0; i < 25; i++)
         {
             double xd = (rng.NextDouble() - 0.5) * 20;
-            Real x = Real.FromDouble(xd, P);
-            Real y = Real.Log(Real.Exp(x, P + 32), P + 32);
+            BigFloat x = BigFloat.FromDouble(xd, P);
+            BigFloat y = BigFloat.Log(BigFloat.Exp(x, P + 32), P + 32);
             // |y - x| should be ~2^-(P) relative.
-            Real diff = Real.Subtract(y, x, 64).Abs();
+            BigFloat diff = BigFloat.Subtract(y, x, 64).Abs();
             if (!diff.IsZero && !x.IsZero)
             {
                 Assert.True(diff.BinaryExponent <= x.BinaryExponent - P + 8,
@@ -98,16 +98,16 @@ public class TranscendentalTests
     [Fact]
     public void Exp_SpecialCases()
     {
-        Assert.Equal(1.0, Real.Exp(Real.Zero).ToDouble());
-        Assert.True(Real.Exp(Real.PositiveInfinity).IsPositiveInfinity);
-        Assert.True(Real.Exp(Real.NegativeInfinity).IsZero);
-        Assert.True(Real.Exp(Real.NaN).IsNaN);
-        Assert.True(Real.Log(Real.Zero).IsNegativeInfinity);
-        Assert.True(Real.Log(Real.MinusOne).IsNaN);
-        Assert.True(Real.Log(Real.One).IsZero);
-        Assert.False(Real.Log(Real.One).SignBit);
-        Assert.Equal(10.0, Real.Log2(Real.FromDouble(1024.0)).ToDouble());
-        Assert.Equal(3.0, Real.Log10(Real.FromDouble(1000.0, 96), 96).ToDouble());
+        Assert.Equal(1.0, BigFloat.Exp(BigFloat.Zero).ToDouble());
+        Assert.True(BigFloat.Exp(BigFloat.PositiveInfinity).IsPositiveInfinity);
+        Assert.True(BigFloat.Exp(BigFloat.NegativeInfinity).IsZero);
+        Assert.True(BigFloat.Exp(BigFloat.NaN).IsNaN);
+        Assert.True(BigFloat.Log(BigFloat.Zero).IsNegativeInfinity);
+        Assert.True(BigFloat.Log(BigFloat.MinusOne).IsNaN);
+        Assert.True(BigFloat.Log(BigFloat.One).IsZero);
+        Assert.False(BigFloat.Log(BigFloat.One).SignBit);
+        Assert.Equal(10.0, BigFloat.Log2(BigFloat.FromDouble(1024.0)).ToDouble());
+        Assert.Equal(3.0, BigFloat.Log10(BigFloat.FromDouble(1000.0, 96), 96).ToDouble());
     }
 
     [Fact]
@@ -117,16 +117,16 @@ public class TranscendentalTests
         for (int i = 0; i < 300; i++)
         {
             double x = (rng.NextDouble() - 0.5) * 20;
-            AssertUlps(Math.Sin(x), Real.Sin(Real.FromDouble(x, 53), 53).ToDouble(), 2);
-            AssertUlps(Math.Cos(x), Real.Cos(Real.FromDouble(x, 53), 53).ToDouble(), 2);
-            AssertUlps(Math.Tan(x), Real.Tan(Real.FromDouble(x, 53), 53).ToDouble(), 2);
-            AssertUlps(Math.Atan(x), Real.Atan(Real.FromDouble(x, 53), 53).ToDouble(), 2);
+            AssertUlps(Math.Sin(x), BigFloat.Sin(BigFloat.FromDouble(x, 53), 53).ToDouble(), 2);
+            AssertUlps(Math.Cos(x), BigFloat.Cos(BigFloat.FromDouble(x, 53), 53).ToDouble(), 2);
+            AssertUlps(Math.Tan(x), BigFloat.Tan(BigFloat.FromDouble(x, 53), 53).ToDouble(), 2);
+            AssertUlps(Math.Atan(x), BigFloat.Atan(BigFloat.FromDouble(x, 53), 53).ToDouble(), 2);
         }
         for (int i = 0; i < 200; i++)
         {
             double x = rng.NextDouble() * 1.99 - 0.995;
-            AssertUlps(Math.Asin(x), Real.Asin(Real.FromDouble(x, 53), 53).ToDouble(), 2);
-            AssertUlps(Math.Acos(x), Real.Acos(Real.FromDouble(x, 53), 53).ToDouble(), 2);
+            AssertUlps(Math.Asin(x), BigFloat.Asin(BigFloat.FromDouble(x, 53), 53).ToDouble(), 2);
+            AssertUlps(Math.Acos(x), BigFloat.Acos(BigFloat.FromDouble(x, 53), 53).ToDouble(), 2);
         }
     }
 
@@ -137,11 +137,11 @@ public class TranscendentalTests
         for (int i = 0; i < 15; i++)
         {
             double xd = (rng.NextDouble() - 0.5) * 6;
-            Real x = Real.FromDouble(xd, P);
-            Real s = Real.Sin(x, P + 16);
-            Real c = Real.Cos(x, P + 16);
-            Real sum = Real.Add(Real.Square(s, P + 16), Real.Square(c, P + 16), 64);
-            Real diff = Real.Subtract(sum, Real.One, 64).Abs();
+            BigFloat x = BigFloat.FromDouble(xd, P);
+            BigFloat s = BigFloat.Sin(x, P + 16);
+            BigFloat c = BigFloat.Cos(x, P + 16);
+            BigFloat sum = BigFloat.Add(BigFloat.Square(s, P + 16), BigFloat.Square(c, P + 16), 64);
+            BigFloat diff = BigFloat.Subtract(sum, BigFloat.One, 64).Abs();
             Assert.True(diff.IsZero || diff.BinaryExponent <= -P + 8, $"sin²+cos² != 1 at x={xd}");
         }
     }
@@ -150,31 +150,31 @@ public class TranscendentalTests
     public void Trig_LargeArgumentReduction()
     {
         // sin(10^30) needs π to ~100 extra digits; verify vs high-precision identity.
-        Real big = Real.Parse("1e30", 256);
-        Real s = Real.Sin(big, 128);
-        Real c = Real.Cos(big, 128);
-        Real sum = Real.Add(Real.Square(s, 160), Real.Square(c, 160), 64);
-        Real diff = Real.Subtract(sum, Real.One, 64).Abs();
+        BigFloat big = BigFloat.Parse("1e30", 256);
+        BigFloat s = BigFloat.Sin(big, 128);
+        BigFloat c = BigFloat.Cos(big, 128);
+        BigFloat sum = BigFloat.Add(BigFloat.Square(s, 160), BigFloat.Square(c, 160), 64);
+        BigFloat diff = BigFloat.Subtract(sum, BigFloat.One, 64).Abs();
         Assert.True(diff.IsZero || diff.BinaryExponent <= -120);
         // Cross-check the double value.
-        AssertUlps(Math.Sin(1e30), Real.Sin(Real.FromDouble(1e30, 53), 53).ToDouble(), 4);
+        AssertUlps(Math.Sin(1e30), BigFloat.Sin(BigFloat.FromDouble(1e30, 53), 53).ToDouble(), 4);
     }
 
     [Fact]
     public void Atan2_Quadrants()
     {
-        AssertUlps(Math.Atan2(1, 1), Real.Atan2(Real.One, Real.One, 53).ToDouble(), 2);
-        AssertUlps(Math.Atan2(1, -1), Real.Atan2(Real.One, Real.MinusOne, 53).ToDouble(), 2);
-        AssertUlps(Math.Atan2(-1, 1), Real.Atan2(Real.MinusOne, Real.One, 53).ToDouble(), 2);
-        AssertUlps(Math.Atan2(-1, -1), Real.Atan2(Real.MinusOne, Real.MinusOne, 53).ToDouble(), 2);
-        Assert.True(Real.Atan2(Real.Zero, Real.One).IsZero);
-        AssertUlps(Math.PI, Real.Atan2(Real.Zero, Real.MinusOne, 53).ToDouble(), 2);
-        AssertUlps(Math.PI / 2, Real.Atan2(Real.One, Real.Zero, 53).ToDouble(), 2);
+        AssertUlps(Math.Atan2(1, 1), BigFloat.Atan2(BigFloat.One, BigFloat.One, 53).ToDouble(), 2);
+        AssertUlps(Math.Atan2(1, -1), BigFloat.Atan2(BigFloat.One, BigFloat.MinusOne, 53).ToDouble(), 2);
+        AssertUlps(Math.Atan2(-1, 1), BigFloat.Atan2(BigFloat.MinusOne, BigFloat.One, 53).ToDouble(), 2);
+        AssertUlps(Math.Atan2(-1, -1), BigFloat.Atan2(BigFloat.MinusOne, BigFloat.MinusOne, 53).ToDouble(), 2);
+        Assert.True(BigFloat.Atan2(BigFloat.Zero, BigFloat.One).IsZero);
+        AssertUlps(Math.PI, BigFloat.Atan2(BigFloat.Zero, BigFloat.MinusOne, 53).ToDouble(), 2);
+        AssertUlps(Math.PI / 2, BigFloat.Atan2(BigFloat.One, BigFloat.Zero, 53).ToDouble(), 2);
         var rng = new Random(14);
         for (int i = 0; i < 200; i++)
         {
             double y = (rng.NextDouble() - 0.5) * 100, x = (rng.NextDouble() - 0.5) * 100;
-            AssertUlps(Math.Atan2(y, x), Real.Atan2(Real.FromDouble(y, 53), Real.FromDouble(x, 53), 53).ToDouble(), 2);
+            AssertUlps(Math.Atan2(y, x), BigFloat.Atan2(BigFloat.FromDouble(y, 53), BigFloat.FromDouble(x, 53), 53).ToDouble(), 2);
         }
     }
 
@@ -185,17 +185,17 @@ public class TranscendentalTests
         for (int i = 0; i < 200; i++)
         {
             double x = (rng.NextDouble() - 0.5) * 12;
-            AssertUlps(Math.Sinh(x), Real.Sinh(Real.FromDouble(x, 53), 53).ToDouble(), 2);
-            AssertUlps(Math.Cosh(x), Real.Cosh(Real.FromDouble(x, 53), 53).ToDouble(), 2);
-            AssertUlps(Math.Tanh(x), Real.Tanh(Real.FromDouble(x, 53), 53).ToDouble(), 2);
-            AssertUlps(Math.Asinh(x), Real.Asinh(Real.FromDouble(x, 53), 53).ToDouble(), 2);
+            AssertUlps(Math.Sinh(x), BigFloat.Sinh(BigFloat.FromDouble(x, 53), 53).ToDouble(), 2);
+            AssertUlps(Math.Cosh(x), BigFloat.Cosh(BigFloat.FromDouble(x, 53), 53).ToDouble(), 2);
+            AssertUlps(Math.Tanh(x), BigFloat.Tanh(BigFloat.FromDouble(x, 53), 53).ToDouble(), 2);
+            AssertUlps(Math.Asinh(x), BigFloat.Asinh(BigFloat.FromDouble(x, 53), 53).ToDouble(), 2);
         }
         for (int i = 0; i < 100; i++)
         {
             double x = 1 + rng.NextDouble() * 20;
-            AssertUlps(Math.Acosh(x), Real.Acosh(Real.FromDouble(x, 53), 53).ToDouble(), 2);
+            AssertUlps(Math.Acosh(x), BigFloat.Acosh(BigFloat.FromDouble(x, 53), 53).ToDouble(), 2);
             double t = rng.NextDouble() * 1.98 - 0.99;
-            AssertUlps(Math.Atanh(t), Real.Atanh(Real.FromDouble(t, 53), 53).ToDouble(), 2);
+            AssertUlps(Math.Atanh(t), BigFloat.Atanh(BigFloat.FromDouble(t, 53), 53).ToDouble(), 2);
         }
     }
 
@@ -207,26 +207,26 @@ public class TranscendentalTests
         {
             double x = rng.NextDouble() * 10 + 0.01;
             double y = (rng.NextDouble() - 0.5) * 20;
-            AssertUlps(Math.Pow(x, y), Real.Pow(Real.FromDouble(x, 53), Real.FromDouble(y, 53), 53).ToDouble(), 2);
+            AssertUlps(Math.Pow(x, y), BigFloat.Pow(BigFloat.FromDouble(x, 53), BigFloat.FromDouble(y, 53), 53).ToDouble(), 2);
         }
         // Special cases.
-        Assert.Equal(1.0, Real.Pow(Real.NaN, Real.Zero).ToDouble());
-        Assert.Equal(1.0, Real.Pow(Real.One, Real.NaN).ToDouble());
-        Assert.True(Real.Pow(Real.MinusOne, Real.FromDouble(0.5)).IsNaN);
-        Assert.Equal(-8.0, Real.Pow(Real.FromDouble(-2.0), Real.FromDouble(3.0), 53).ToDouble());
-        Assert.Equal(0.25, Real.Pow(Real.FromDouble(-2.0), Real.FromDouble(-2.0), 53).ToDouble());
-        Assert.True(Real.Pow(Real.Zero, Real.FromDouble(-1.0)).IsPositiveInfinity);
-        Assert.True(Real.Pow(Real.NegativeZero, Real.FromDouble(-3.0)).IsNegativeInfinity);
-        Assert.Equal(1.0, Real.Pow(Real.PositiveInfinity, Real.Zero).ToDouble());
+        Assert.Equal(1.0, BigFloat.Pow(BigFloat.NaN, BigFloat.Zero).ToDouble());
+        Assert.Equal(1.0, BigFloat.Pow(BigFloat.One, BigFloat.NaN).ToDouble());
+        Assert.True(BigFloat.Pow(BigFloat.MinusOne, BigFloat.FromDouble(0.5)).IsNaN);
+        Assert.Equal(-8.0, BigFloat.Pow(BigFloat.FromDouble(-2.0), BigFloat.FromDouble(3.0), 53).ToDouble());
+        Assert.Equal(0.25, BigFloat.Pow(BigFloat.FromDouble(-2.0), BigFloat.FromDouble(-2.0), 53).ToDouble());
+        Assert.True(BigFloat.Pow(BigFloat.Zero, BigFloat.FromDouble(-1.0)).IsPositiveInfinity);
+        Assert.True(BigFloat.Pow(BigFloat.NegativeZero, BigFloat.FromDouble(-3.0)).IsNegativeInfinity);
+        Assert.Equal(1.0, BigFloat.Pow(BigFloat.PositiveInfinity, BigFloat.Zero).ToDouble());
     }
 
     [Fact]
     public void PowInt_ExactCases()
     {
-        Assert.Equal(1024.0, Real.Pow(Real.Two, 10, 53).ToDouble());
-        Assert.Equal(Math.Pow(3, 20), Real.Pow(Real.FromDouble(3, 53), 20, 53).ToDouble());
-        Assert.Equal(Math.Pow(2, -10), Real.Pow(Real.Two, -10, 53).ToDouble());
-        Assert.Equal(-27.0, Real.Pow(Real.FromDouble(-3, 53), 3, 53).ToDouble());
+        Assert.Equal(1024.0, BigFloat.Pow(BigFloat.Two, 10, 53).ToDouble());
+        Assert.Equal(Math.Pow(3, 20), BigFloat.Pow(BigFloat.FromDouble(3, 53), 20, 53).ToDouble());
+        Assert.Equal(Math.Pow(2, -10), BigFloat.Pow(BigFloat.Two, -10, 53).ToDouble());
+        Assert.Equal(-27.0, BigFloat.Pow(BigFloat.FromDouble(-3, 53), 3, 53).ToDouble());
     }
 
     [Fact]
@@ -242,38 +242,38 @@ public class TranscendentalTests
             var (my, ey) = Decompose(y);
             int e2 = Math.Min(2 * ex, 2 * ey);
             BigInteger sumSq = (mx * mx << (2 * ex - e2)) + (my * my << (2 * ey - e2));
-            AssertNearestRoot(Real.Hypot(Real.FromDouble(x, 53), Real.FromDouble(y, 53), 53).ToDouble(), 2, sumSq, e2, $"hypot({x:R}, {y:R})");
-            double cbrt = Real.Cbrt(Real.FromDouble(x, 53), 53).ToDouble();
+            AssertNearestRoot(BigFloat.Hypot(BigFloat.FromDouble(x, 53), BigFloat.FromDouble(y, 53), 53).ToDouble(), 2, sumSq, e2, $"hypot({x:R}, {y:R})");
+            double cbrt = BigFloat.Cbrt(BigFloat.FromDouble(x, 53), 53).ToDouble();
             Assert.Equal(Math.Sign(x), Math.Sign(cbrt));
             AssertNearestRoot(Math.Abs(cbrt), 3, mx, ex, $"cbrt({x:R})");
         }
-        Assert.Equal(2.0, Real.RootN(Real.FromDouble(32.0, 53), 5, 53).ToDouble());
-        Assert.Equal(-2.0, Real.Cbrt(Real.FromDouble(-8.0, 53), 53).ToDouble());
-        Assert.True(Real.RootN(Real.FromDouble(-8.0, 53), 4, 53).IsNaN);
-        AssertUlps(1 / Math.Sqrt(2), Real.ReciprocalSqrt(Real.FromDouble(2.0, 53), 53).ToDouble(), 1);
+        Assert.Equal(2.0, BigFloat.RootN(BigFloat.FromDouble(32.0, 53), 5, 53).ToDouble());
+        Assert.Equal(-2.0, BigFloat.Cbrt(BigFloat.FromDouble(-8.0, 53), 53).ToDouble());
+        Assert.True(BigFloat.RootN(BigFloat.FromDouble(-8.0, 53), 4, 53).IsNaN);
+        AssertUlps(1 / Math.Sqrt(2), BigFloat.ReciprocalSqrt(BigFloat.FromDouble(2.0, 53), 53).ToDouble(), 1);
     }
 
     [Fact]
     public void Expm1Log1p_AccurateNearZero()
     {
         double x = 1e-30;
-        Real r = Real.ExpM1(Real.FromDouble(x, 53), 53);
+        BigFloat r = BigFloat.ExpM1(BigFloat.FromDouble(x, 53), 53);
         // expm1(1e-30) ≈ 1e-30 exactly at double precision.
         Assert.Equal(x, r.ToDouble());
-        Real l = Real.LogP1(Real.FromDouble(x, 53), 53);
+        BigFloat l = BigFloat.LogP1(BigFloat.FromDouble(x, 53), 53);
         Assert.Equal(x, l.ToDouble());
         var rng = new Random(18);
         for (int i = 0; i < 100; i++)
         {
             double t = (rng.NextDouble() - 0.5) * 2;
-            Real xt = Real.FromDouble(t, 53);
+            BigFloat xt = BigFloat.FromDouble(t, 53);
             // Reference via high-precision arithmetic (double Math.Exp(t)-1 suffers cancellation).
-            double expm1Ref = Real.Subtract(Real.Exp(xt, 120), Real.One, 53).ToDouble();
-            AssertUlps(expm1Ref, Real.ExpM1(xt, 53).ToDouble(), 1);
+            double expm1Ref = BigFloat.Subtract(BigFloat.Exp(xt, 120), BigFloat.One, 53).ToDouble();
+            AssertUlps(expm1Ref, BigFloat.ExpM1(xt, 53).ToDouble(), 1);
             if (t > -1)
             {
-                double log1pRef = Real.Log(Real.Add(Real.One, xt, 120), 53).ToDouble();
-                AssertUlps(log1pRef, Real.LogP1(xt, 53).ToDouble(), 1);
+                double log1pRef = BigFloat.Log(BigFloat.Add(BigFloat.One, xt, 120), 53).ToDouble();
+                AssertUlps(log1pRef, BigFloat.LogP1(xt, 53).ToDouble(), 1);
             }
         }
     }
@@ -285,19 +285,19 @@ public class TranscendentalTests
         for (int i = 0; i < 300; i++)
         {
             double d = Math.ScaleB(rng.NextDouble() * 2 - 1, rng.Next(-80, 80));
-            Real r = Real.FromDouble(d, 53);
-            Real back = Real.Parse(r.ToString(), 53);
+            BigFloat r = BigFloat.FromDouble(d, 53);
+            BigFloat back = BigFloat.Parse(r.ToString(), 53);
             Assert.Equal(r.ToDouble(), back.ToDouble());
         }
         // High-precision round trip.
-        Real pi = Real.Pi(300);
-        Real back2 = Real.Parse(pi.ToString(), 300);
-        Assert.True(Real.Subtract(pi, back2, 64).IsZero);
-        Assert.Equal("NaN", Real.NaN.ToString());
-        Assert.Equal("Infinity", Real.PositiveInfinity.ToString());
-        Assert.Equal("-0", Real.NegativeZero.ToString());
-        Assert.True(Real.Parse("-inf").IsNegativeInfinity);
-        Assert.True(Real.Parse("nan").IsNaN);
+        BigFloat pi = BigFloat.Pi(300);
+        BigFloat back2 = BigFloat.Parse(pi.ToString(), 300);
+        Assert.True(BigFloat.Subtract(pi, back2, 64).IsZero);
+        Assert.Equal("NaN", BigFloat.NaN.ToString());
+        Assert.Equal("Infinity", BigFloat.PositiveInfinity.ToString());
+        Assert.Equal("-0", BigFloat.NegativeZero.ToString());
+        Assert.True(BigFloat.Parse("-inf").IsNegativeInfinity);
+        Assert.True(BigFloat.Parse("nan").IsNaN);
     }
 
     [Fact]
@@ -305,15 +305,15 @@ public class TranscendentalTests
     {
         // Functions ≈ x for very small x must terminate quickly; under round-to-nearest
         // the result equals x, and directed modes must land on the correct side.
-        Real tiny = Real.FromDouble(1.0, 200).ShiftRight(100000); // 2^-100000
-        Assert.Equal(0, Real.Sin(tiny, 64).CompareTo(tiny));
-        Assert.True(Real.Sin(tiny, 64, RealRounding.TowardZero).CompareTo(tiny) < 0);  // sin x < x
-        Assert.True(Real.Tan(tiny, 64, RealRounding.AwayFromZero).CompareTo(tiny) > 0); // tan x > x
-        Assert.True(Real.Atan(tiny, 64, RealRounding.TowardZero).CompareTo(tiny) < 0);
-        Assert.True(Real.Sinh(tiny, 64, RealRounding.AwayFromZero).CompareTo(tiny) > 0);
-        Assert.True(Real.Tanh(tiny, 64, RealRounding.TowardZero).CompareTo(tiny) < 0);
-        Assert.True(Real.Asinh(tiny, 64, RealRounding.TowardZero).CompareTo(tiny) < 0);
-        Assert.True(Real.Atanh(tiny, 64, RealRounding.AwayFromZero).CompareTo(tiny) > 0);
+        BigFloat tiny = BigFloat.FromDouble(1.0, 200).ShiftRight(100000); // 2^-100000
+        Assert.Equal(0, BigFloat.Sin(tiny, 64).CompareTo(tiny));
+        Assert.True(BigFloat.Sin(tiny, 64, RoundingMode.TowardZero).CompareTo(tiny) < 0);  // sin x < x
+        Assert.True(BigFloat.Tan(tiny, 64, RoundingMode.AwayFromZero).CompareTo(tiny) > 0); // tan x > x
+        Assert.True(BigFloat.Atan(tiny, 64, RoundingMode.TowardZero).CompareTo(tiny) < 0);
+        Assert.True(BigFloat.Sinh(tiny, 64, RoundingMode.AwayFromZero).CompareTo(tiny) > 0);
+        Assert.True(BigFloat.Tanh(tiny, 64, RoundingMode.TowardZero).CompareTo(tiny) < 0);
+        Assert.True(BigFloat.Asinh(tiny, 64, RoundingMode.TowardZero).CompareTo(tiny) < 0);
+        Assert.True(BigFloat.Atanh(tiny, 64, RoundingMode.AwayFromZero).CompareTo(tiny) > 0);
     }
 
     /// <summary>|d| = m * 2^e exactly, for finite d.</summary>

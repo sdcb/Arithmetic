@@ -3,7 +3,7 @@ using System.Globalization;
 
 namespace Sdcb.Arithmetic;
 
-public readonly partial struct Real
+public readonly partial struct BigFloat
 {
     // ---------------------------------------------------------------
     // Formatting (correctly rounded decimal, mpfr_get_str style)
@@ -13,10 +13,10 @@ public readonly partial struct Real
     /// Formats with just enough decimal digits to read the value back exactly
     /// (1 + ceil(p*log10(2)) significant digits).
     /// </summary>
-    public override string ToString() => ToString(0, RealRounding.NearestEven);
+    public override string ToString() => ToString(0, RoundingMode.NearestEven);
 
     /// <summary>Formats with the given number of significant decimal digits (0 = enough for round-trip).</summary>
-    public string ToString(int significantDigits, RealRounding rounding = RealRounding.NearestEven)
+    public string ToString(int significantDigits, RoundingMode rounding = RoundingMode.NearestEven)
     {
         switch (_kind)
         {
@@ -61,7 +61,7 @@ public readonly partial struct Real
     }
 
     /// <summary>Correctly-rounded first nd decimal digits; fixes up the decimal exponent estimate.</summary>
-    private string DecimalDigits(int nd, long e10, RealRounding rounding, out long e10Fixed)
+    private string DecimalDigits(int nd, long e10, RoundingMode rounding, out long e10Fixed)
     {
         for (int attempt = 0; ; attempt++)
         {
@@ -83,7 +83,7 @@ public readonly partial struct Real
     }
 
     /// <summary>Rounds |v| * 10^k to an integer under the value's sign and mode.</summary>
-    private BigInt ScaledDecimal(long k, RealRounding rnd)
+    private BigInt ScaledDecimal(long k, RoundingMode rnd)
     {
         BigInt num = _man;
         BigInt den = BigInt.One;
@@ -110,11 +110,11 @@ public readonly partial struct Real
         }
         bool up = rnd switch
         {
-            RealRounding.NearestEven => Compare2R(r, den, q),
-            RealRounding.TowardZero => false,
-            RealRounding.AwayFromZero => true,
-            RealRounding.TowardPositive => !IsNeg,
-            RealRounding.TowardNegative => IsNeg,
+            RoundingMode.NearestEven => Compare2R(r, den, q),
+            RoundingMode.TowardZero => false,
+            RoundingMode.AwayFromZero => true,
+            RoundingMode.TowardPositive => !IsNeg,
+            RoundingMode.TowardNegative => IsNeg,
             _ => false,
         };
         return up ? q + BigInt.One : q;
@@ -145,27 +145,27 @@ public readonly partial struct Real
     // Parsing (correctly rounded, mpfr_set_str for base 10)
     // ---------------------------------------------------------------
 
-    public static Real Parse(string s, IFormatProvider? provider = null) => Parse(s.AsSpan(), provider);
+    public static BigFloat Parse(string s, IFormatProvider? provider = null) => Parse(s.AsSpan(), provider);
 
-    public static Real Parse(ReadOnlySpan<char> s, IFormatProvider? provider = null)
-        => Parse(s, 0, RealRounding.NearestEven);
+    public static BigFloat Parse(ReadOnlySpan<char> s, IFormatProvider? provider = null)
+        => Parse(s, 0, RoundingMode.NearestEven);
 
-    public static Real Parse(ReadOnlySpan<char> s, int precision, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Parse(ReadOnlySpan<char> s, int precision, RoundingMode rounding = RoundingMode.NearestEven)
     {
-        if (!TryParse(s, precision, rounding, out Real result))
+        if (!TryParse(s, precision, rounding, out BigFloat result))
         {
-            throw new FormatException("The value could not be parsed as a Real.");
+            throw new FormatException("The value could not be parsed as a BigFloat.");
         }
         return result;
     }
 
-    public static bool TryParse(string? s, IFormatProvider? provider, out Real result)
-        => TryParse(s.AsSpan(), 0, RealRounding.NearestEven, out result);
+    public static bool TryParse(string? s, IFormatProvider? provider, out BigFloat result)
+        => TryParse(s.AsSpan(), 0, RoundingMode.NearestEven, out result);
 
-    public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, out Real result)
-        => TryParse(s, 0, RealRounding.NearestEven, out result);
+    public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, out BigFloat result)
+        => TryParse(s, 0, RoundingMode.NearestEven, out result);
 
-    public static bool TryParse(ReadOnlySpan<char> s, int precision, RealRounding rounding, out Real result)
+    public static bool TryParse(ReadOnlySpan<char> s, int precision, RoundingMode rounding, out BigFloat result)
     {
         result = default;
         s = s.Trim();
@@ -250,5 +250,5 @@ public readonly partial struct Real
     // ---------------------------------------------------------------
 
     /// <summary>Converts to long, rounding per mode; throws on NaN/Inf/overflow (mpfr_get_si-ish).</summary>
-    public long ToInt64(RealRounding rounding = RealRounding.TowardZero) => (long)ToBigInt(rounding);
+    public long ToInt64(RoundingMode rounding = RoundingMode.TowardZero) => (long)ToBigInt(rounding);
 }

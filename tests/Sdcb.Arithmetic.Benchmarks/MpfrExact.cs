@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 namespace Sdcb.Arithmetic.Benchmarks;
 
 /// <summary>
-/// Bit-exact cross-check of Real against native MPFR: every function, all five rounding
+/// Bit-exact cross-check of BigFloat against native MPFR: every function, all five rounding
 /// modes, several precisions. Results are compared as (mantissa, exponent) pairs via
 /// mpfr_get_z_2exp, plus NaN / signed infinity / signed zero. `-- exact [filter]`.
 /// </summary>
@@ -43,11 +43,11 @@ internal static unsafe class MpfrExact
 
     private static readonly IntPtr s_lib = NativeLibrary.Load(Lib, typeof(MpfrExact).Assembly, null);
 
-    private delegate Real Unary(Real x, int prec, RealRounding rnd);
-    private delegate Real Binary(Real x, Real y, int prec, RealRounding rnd);
+    private delegate BigFloat Unary(BigFloat x, int prec, RoundingMode rnd);
+    private delegate BigFloat Binary(BigFloat x, BigFloat y, int prec, RoundingMode rnd);
 
-    /// <summary>Input generator: returns a random Real of the given precision in the function's domain.</summary>
-    private delegate Real Gen(Random rng, int prec);
+    /// <summary>Input generator: returns a random BigFloat of the given precision in the function's domain.</summary>
+    private delegate BigFloat Gen(Random rng, int prec);
 
     // string.GetHashCode() is randomized per process, which made the cross-check flaky.
     private static int StableSeed(string name)
@@ -72,13 +72,13 @@ internal static unsafe class MpfrExact
         int[] precs = bigPrecs ? [2, 7, 24, 53, 64, 113, 200, 640, 4097, 9000] : [2, 7, 24, 53, 64, 113, 200, 640];
 
         // Domains: generic (wide exponents), moderate (|x| up to ~2^8), unit interval, positive.
-        Gen any = (r, p) => RandomReal(r, p, -40, 40, allowNeg: true);
-        Gen mod = (r, p) => RandomReal(r, p, -20, 8, allowNeg: true);
-        Gen pos = (r, p) => RandomReal(r, p, -40, 40, allowNeg: false);
-        Gen unit = (r, p) => RandomReal(r, p, -30, 0, allowNeg: true);
-        Gen big = (r, p) => RandomReal(r, p, -4, 12, allowNeg: true);
-        Gen posMod = (r, p) => RandomReal(r, p, -20, 8, allowNeg: false);
-        Gen geOne = (r, p) => Real.Add(Real.One, RandomReal(r, p, -30, 20, allowNeg: false), p);
+        Gen any = (r, p) => RandomBigFloat(r, p, -40, 40, allowNeg: true);
+        Gen mod = (r, p) => RandomBigFloat(r, p, -20, 8, allowNeg: true);
+        Gen pos = (r, p) => RandomBigFloat(r, p, -40, 40, allowNeg: false);
+        Gen unit = (r, p) => RandomBigFloat(r, p, -30, 0, allowNeg: true);
+        Gen big = (r, p) => RandomBigFloat(r, p, -4, 12, allowNeg: true);
+        Gen posMod = (r, p) => RandomBigFloat(r, p, -20, 8, allowNeg: false);
+        Gen geOne = (r, p) => BigFloat.Add(BigFloat.One, RandomBigFloat(r, p, -30, 20, allowNeg: false), p);
 
         foreach (var (name, ours, native, gen) in UnaryCases(any, mod, pos, unit, big, posMod, geOne))
         {
@@ -94,13 +94,13 @@ internal static unsafe class MpfrExact
                 int count = prec > 300 ? 6 : 24;
                 for (int i = 0; i < count; i++)
                 {
-                    Real x = gen(rng, rng.Next(2) == 0 ? prec : Math.Max(2, prec / 2 + rng.Next(prec)));
+                    BigFloat x = gen(rng, rng.Next(2) == 0 ? prec : Math.Max(2, prec / 2 + rng.Next(prec)));
                     for (int rnd = 0; rnd < 5; rnd++)
                     {
-                        Real o;
+                        BigFloat o;
                         try
                         {
-                            o = ours(x, prec, (RealRounding)rnd);
+                            o = ours(x, prec, (RoundingMode)rnd);
                         }
                         catch (Exception ex)
                         {
@@ -132,13 +132,13 @@ internal static unsafe class MpfrExact
                 int count = prec > 300 ? 6 : 24;
                 for (int i = 0; i < count; i++)
                 {
-                    Real x = gx(rng, prec), y = gy(rng, rng.Next(2) == 0 ? prec : Math.Max(2, prec / 2 + rng.Next(prec)));
+                    BigFloat x = gx(rng, prec), y = gy(rng, rng.Next(2) == 0 ? prec : Math.Max(2, prec / 2 + rng.Next(prec)));
                     for (int rnd = 0; rnd < 5; rnd++)
                     {
-                        Real o;
+                        BigFloat o;
                         try
                         {
-                            o = ours(x, y, prec, (RealRounding)rnd);
+                            o = ours(x, y, prec, (RoundingMode)rnd);
                         }
                         catch (Exception ex)
                         {
@@ -206,7 +206,7 @@ internal static unsafe class MpfrExact
             Console.WriteLine($"{name,-12} {(s_failures == before ? "ok" : $"FAILED ({s_failures - before})")}");
         }
 
-        void Cmp(string name, int prec, int rnd, string args, Real ours, Mpfr.MpfrT* mr)
+        void Cmp(string name, int prec, int rnd, string args, BigFloat ours, Mpfr.MpfrT* mr)
         {
             Check(name, prec, rnd, args, ours, mr);
         }
@@ -216,10 +216,10 @@ internal static unsafe class MpfrExact
             for (int i = 0; i < 3; i++)
             {
                 int n = rng.Next(-6, 25);
-                Real x = RandomReal(rng, prec, -10, 5, allowNeg: true);
+                BigFloat x = RandomBigFloat(rng, prec, -10, 5, allowNeg: true);
                 Mpfr.MpfrT* mx = ToMpfr(x), mr = NewMpfr(prec);
                 jn(mr, n, mx, rnd);
-                Cmp("jn", prec, rnd, $"n={n} x={Show(x)}", Real.BesselJ(n, x, prec, (RealRounding)rnd), mr);
+                Cmp("jn", prec, rnd, $"n={n} x={Show(x)}", BigFloat.BesselJ(n, x, prec, (RoundingMode)rnd), mr);
                 Free(mx); Free(mr);
             }
         });
@@ -228,10 +228,10 @@ internal static unsafe class MpfrExact
             for (int i = 0; i < 3; i++)
             {
                 int n = rng.Next(-6, 25);
-                Real x = RandomReal(rng, prec, -10, 5, allowNeg: false);
+                BigFloat x = RandomBigFloat(rng, prec, -10, 5, allowNeg: false);
                 Mpfr.MpfrT* mx = ToMpfr(x), mr = NewMpfr(prec);
                 yn(mr, n, mx, rnd);
-                Cmp("yn", prec, rnd, $"n={n} x={Show(x)}", Real.BesselY(n, x, prec, (RealRounding)rnd), mr);
+                Cmp("yn", prec, rnd, $"n={n} x={Show(x)}", BigFloat.BesselY(n, x, prec, (RoundingMode)rnd), mr);
                 Free(mx); Free(mr);
             }
         });
@@ -240,10 +240,10 @@ internal static unsafe class MpfrExact
             for (int i = 0; i < 3; i++)
             {
                 int n = rng.Next(-40, 40);
-                Real x = Real.Add(Real.MinusOne, RandomReal(rng, prec, -20, 6, allowNeg: false), prec + 64);
+                BigFloat x = BigFloat.Add(BigFloat.MinusOne, RandomBigFloat(rng, prec, -20, 6, allowNeg: false), prec + 64);
                 Mpfr.MpfrT* mx = ToMpfr(x), mr = NewMpfr(prec);
                 compound(mr, mx, n, rnd);
-                Cmp("compound", prec, rnd, $"n={n} x={Show(x)}", Real.Compound(x, n, prec, (RealRounding)rnd), mr);
+                Cmp("compound", prec, rnd, $"n={n} x={Show(x)}", BigFloat.Compound(x, n, prec, (RoundingMode)rnd), mr);
                 Free(mx); Free(mr);
             }
         });
@@ -252,10 +252,10 @@ internal static unsafe class MpfrExact
             for (int i = 0; i < 3; i++)
             {
                 int k = rng.Next(-9, 10);
-                Real x = RandomReal(rng, prec, -30, 30, allowNeg: true);
+                BigFloat x = RandomBigFloat(rng, prec, -30, 30, allowNeg: true);
                 Mpfr.MpfrT* mx = ToMpfr(x), mr = NewMpfr(prec);
                 rootnsi(mr, mx, k, rnd);
-                Cmp("rootn_si", prec, rnd, $"k={k} x={Show(x)}", Real.RootN(x, (long)k, prec, (RealRounding)rnd), mr);
+                Cmp("rootn_si", prec, rnd, $"k={k} x={Show(x)}", BigFloat.RootN(x, (long)k, prec, (RoundingMode)rnd), mr);
                 Free(mx); Free(mr);
             }
         });
@@ -263,11 +263,11 @@ internal static unsafe class MpfrExact
         {
             for (int i = 0; i < 3; i++)
             {
-                Real x = RandomReal(rng, prec, -10, 4, allowNeg: true);
+                BigFloat x = RandomBigFloat(rng, prec, -10, 4, allowNeg: true);
                 Mpfr.MpfrT* mx = ToMpfr(x), mr = NewMpfr(prec);
                 int sign;
                 lgamma(mr, &sign, mx, rnd);
-                Real o = Real.LogGamma(x, out int os, prec, (RealRounding)rnd);
+                BigFloat o = BigFloat.LogGamma(x, out int os, prec, (RoundingMode)rnd);
                 Cmp("lgamma", prec, rnd, $"x={Show(x)}", o, mr);
                 if (os != sign && !o.IsNaN)
                 {
@@ -280,11 +280,11 @@ internal static unsafe class MpfrExact
         {
             for (int i = 0; i < 3; i++)
             {
-                Real x = RandomReal(rng, prec, -20, 40, allowNeg: true), y = RandomReal(rng, prec, -20, 20, allowNeg: true);
+                BigFloat x = RandomBigFloat(rng, prec, -20, 40, allowNeg: true), y = RandomBigFloat(rng, prec, -20, 20, allowNeg: true);
                 Mpfr.MpfrT* mx = ToMpfr(x), my = ToMpfr(y), mr = NewMpfr(prec);
                 int q;
                 remquo(mr, &q, mx, my, rnd);
-                Real o = Real.Ieee754Remainder(x, y, out long oq, prec, (RealRounding)rnd);
+                BigFloat o = BigFloat.Ieee754Remainder(x, y, out long oq, prec, (RoundingMode)rnd);
                 Cmp("remquo", prec, rnd, $"x={Show(x)} y={Show(y)}", o, mr);
                 // mpfr returns at least the low bits of a long (32 bits here): compare mod 2^30.
                 if (((oq - q) & ((1L << 30) - 1)) != 0)
@@ -292,7 +292,7 @@ internal static unsafe class MpfrExact
                     Fail("remquo", prec, rnd, $"x={Show(x)} y={Show(y)}", $"quotient {oq} vs {q}");
                 }
                 fmodquo(mr, &q, mx, my, rnd);
-                o = Real.TruncatedRemainder(x, y, out oq, prec, (RealRounding)rnd);
+                o = BigFloat.TruncatedRemainder(x, y, out oq, prec, (RoundingMode)rnd);
                 Cmp("fmodquo", prec, rnd, $"x={Show(x)} y={Show(y)}", o, mr);
                 if (((oq - q) & ((1L << 30) - 1)) != 0)
                 {
@@ -305,15 +305,15 @@ internal static unsafe class MpfrExact
         {
             for (int i = 0; i < 3; i++)
             {
-                Real x = RandomReal(rng, prec + rng.Next(40), -20, 40, allowNeg: true);
+                BigFloat x = RandomBigFloat(rng, prec + rng.Next(40), -20, 40, allowNeg: true);
                 Mpfr.MpfrT* mx = ToMpfr(x), mi = NewMpfr(prec), mf = NewMpfr(prec);
                 modf(mi, mf, mx, rnd);
-                Real oi = Real.Truncate(x, out Real of, prec, (RealRounding)rnd);
+                BigFloat oi = BigFloat.Truncate(x, out BigFloat of, prec, (RoundingMode)rnd);
                 Cmp("modf.int", prec, rnd, $"x={Show(x)}", oi, mi);
                 Cmp("modf.frac", prec, rnd, $"x={Show(x)}", of, mf);
                 int e;
                 frexp(&e, mi, mx, rnd);
-                Real om = Real.Decompose(x, out long oe, prec, (RealRounding)rnd);
+                BigFloat om = BigFloat.Decompose(x, out long oe, prec, (RoundingMode)rnd);
                 Cmp("frexp", prec, rnd, $"x={Show(x)}", om, mi);
                 if (oe != e)
                 {
@@ -326,34 +326,34 @@ internal static unsafe class MpfrExact
         {
             Mpfr.MpfrT* mr = NewMpfr(prec);
             euler(mr, rnd);
-            Cmp("euler", prec, rnd, "", Real.EulerGamma(prec, (RealRounding)rnd), mr);
+            Cmp("euler", prec, rnd, "", BigFloat.EulerGamma(prec, (RoundingMode)rnd), mr);
             catalan(mr, rnd);
-            Cmp("catalan", prec, rnd, "", Real.CatalanConstant(prec, (RealRounding)rnd), mr);
+            Cmp("catalan", prec, rnd, "", BigFloat.CatalanConstant(prec, (RoundingMode)rnd), mr);
             uint n = (uint)rng.Next(0, 300);
             facui(mr, n, rnd);
-            Cmp("fac_ui", prec, rnd, $"n={n}", Real.Factorial(n, prec, (RealRounding)rnd), mr);
+            Cmp("fac_ui", prec, rnd, $"n={n}", BigFloat.Factorial(n, prec, (RoundingMode)rnd), mr);
             zetaui(mr, n % 60, rnd);
-            Cmp("zeta_ui", prec, rnd, $"n={n % 60}", Real.Zeta(n % 60, prec, (RealRounding)rnd), mr);
+            Cmp("zeta_ui", prec, rnd, $"n={n % 60}", BigFloat.Zeta(n % 60, prec, (RoundingMode)rnd), mr);
             uint m = (uint)rng.Next(0, int.MaxValue);
             logui(mr, m, rnd);
-            Cmp("log_ui", prec, rnd, $"n={m}", Real.Log(m, prec, (RealRounding)rnd), mr);
+            Cmp("log_ui", prec, rnd, $"n={m}", BigFloat.Log(m, prec, (RoundingMode)rnd), mr);
             mpfrpi(mr, rnd);
-            Cmp("const_pi", prec, rnd, "", Real.Pi(prec, (RealRounding)rnd), mr);
+            Cmp("const_pi", prec, rnd, "", BigFloat.Pi(prec, (RoundingMode)rnd), mr);
             mpfrlog2(mr, rnd);
-            Cmp("const_log2", prec, rnd, "", Real.Ln2(prec, (RealRounding)rnd), mr);
+            Cmp("const_log2", prec, rnd, "", BigFloat.Ln2(prec, (RoundingMode)rnd), mr);
             Free(mr);
         });
         Run("sum/dot", (prec, rnd) =>
         {
             int len = rng.Next(1, 12);
-            var xs = new Real[len];
-            var ys = new Real[len];
+            var xs = new BigFloat[len];
+            var ys = new BigFloat[len];
             var px = stackalloc Mpfr.MpfrT*[len];
             var py = stackalloc Mpfr.MpfrT*[len];
             for (int i = 0; i < len; i++)
             {
-                xs[i] = RandomReal(rng, rng.Next(2, prec + 20), -60, 60, allowNeg: true);
-                ys[i] = RandomReal(rng, rng.Next(2, prec + 20), -60, 60, allowNeg: true);
+                xs[i] = RandomBigFloat(rng, rng.Next(2, prec + 20), -60, 60, allowNeg: true);
+                ys[i] = RandomBigFloat(rng, rng.Next(2, prec + 20), -60, 60, allowNeg: true);
                 if (i > 0 && rng.Next(4) == 0)
                 {
                     xs[i] = -xs[i - 1]; // exact cancellation
@@ -363,9 +363,9 @@ internal static unsafe class MpfrExact
             }
             Mpfr.MpfrT* mr = NewMpfr(prec);
             sum(mr, px, (uint)len, rnd);
-            Cmp("sum", prec, rnd, $"n={len}", Real.Sum(xs, prec, (RealRounding)rnd), mr);
+            Cmp("sum", prec, rnd, $"n={len}", BigFloat.Sum(xs, prec, (RoundingMode)rnd), mr);
             dot(mr, px, py, (uint)len, rnd);
-            Cmp("dot", prec, rnd, $"n={len}", Real.Dot(xs, ys, prec, (RealRounding)rnd), mr);
+            Cmp("dot", prec, rnd, $"n={len}", BigFloat.Dot(xs, ys, prec, (RoundingMode)rnd), mr);
             Free(mr);
             for (int i = 0; i < len; i++)
             {
@@ -377,30 +377,30 @@ internal static unsafe class MpfrExact
 
     private static IEnumerable<(string, Unary, string, Gen)> UnaryCases(Gen any, Gen mod, Gen pos, Gen unit, Gen big, Gen posMod, Gen geOne)
     {
-        yield return ("sqrt", Real.Sqrt, "mpfr_sqrt", pos);
-        yield return ("rec_sqrt", Real.ReciprocalSqrt, "mpfr_rec_sqrt", pos);
-        yield return ("cbrt", Real.Cbrt, "mpfr_cbrt", any);
-        yield return ("sqr", Real.Square, "mpfr_sqr", any);
-        yield return ("exp", Real.Exp, "mpfr_exp", mod);
-        yield return ("exp2", Real.Exp2, "mpfr_exp2", mod);
-        yield return ("exp10", Real.Exp10, "mpfr_exp10", mod);
-        yield return ("expm1", Real.ExpM1, "mpfr_expm1", mod);
-        yield return ("log", Real.Log, "mpfr_log", pos);
-        yield return ("log2", Real.Log2, "mpfr_log2", pos);
-        yield return ("log10", Real.Log10, "mpfr_log10", pos);
-        yield return ("log1p", Real.LogP1, "mpfr_log1p", pos);
-        yield return ("sin", Real.Sin, "mpfr_sin", big);
-        yield return ("cos", Real.Cos, "mpfr_cos", big);
-        yield return ("tan", Real.Tan, "mpfr_tan", big);
-        yield return ("asin", Real.Asin, "mpfr_asin", unit);
-        yield return ("acos", Real.Acos, "mpfr_acos", unit);
-        yield return ("atan", Real.Atan, "mpfr_atan", any);
-        yield return ("sinh", Real.Sinh, "mpfr_sinh", mod);
-        yield return ("cosh", Real.Cosh, "mpfr_cosh", mod);
-        yield return ("tanh", Real.Tanh, "mpfr_tanh", mod);
-        yield return ("asinh", Real.Asinh, "mpfr_asinh", any);
-        yield return ("acosh", Real.Acosh, "mpfr_acosh", geOne);
-        yield return ("atanh", Real.Atanh, "mpfr_atanh", unit);
+        yield return ("sqrt", BigFloat.Sqrt, "mpfr_sqrt", pos);
+        yield return ("rec_sqrt", BigFloat.ReciprocalSqrt, "mpfr_rec_sqrt", pos);
+        yield return ("cbrt", BigFloat.Cbrt, "mpfr_cbrt", any);
+        yield return ("sqr", BigFloat.Square, "mpfr_sqr", any);
+        yield return ("exp", BigFloat.Exp, "mpfr_exp", mod);
+        yield return ("exp2", BigFloat.Exp2, "mpfr_exp2", mod);
+        yield return ("exp10", BigFloat.Exp10, "mpfr_exp10", mod);
+        yield return ("expm1", BigFloat.ExpM1, "mpfr_expm1", mod);
+        yield return ("log", BigFloat.Log, "mpfr_log", pos);
+        yield return ("log2", BigFloat.Log2, "mpfr_log2", pos);
+        yield return ("log10", BigFloat.Log10, "mpfr_log10", pos);
+        yield return ("log1p", BigFloat.LogP1, "mpfr_log1p", pos);
+        yield return ("sin", BigFloat.Sin, "mpfr_sin", big);
+        yield return ("cos", BigFloat.Cos, "mpfr_cos", big);
+        yield return ("tan", BigFloat.Tan, "mpfr_tan", big);
+        yield return ("asin", BigFloat.Asin, "mpfr_asin", unit);
+        yield return ("acos", BigFloat.Acos, "mpfr_acos", unit);
+        yield return ("atan", BigFloat.Atan, "mpfr_atan", any);
+        yield return ("sinh", BigFloat.Sinh, "mpfr_sinh", mod);
+        yield return ("cosh", BigFloat.Cosh, "mpfr_cosh", mod);
+        yield return ("tanh", BigFloat.Tanh, "mpfr_tanh", mod);
+        yield return ("asinh", BigFloat.Asinh, "mpfr_asinh", any);
+        yield return ("acosh", BigFloat.Acosh, "mpfr_acosh", geOne);
+        yield return ("atanh", BigFloat.Atanh, "mpfr_atanh", unit);
         foreach (var c in ExtraUnaryCases(any, mod, pos, unit, big, posMod, geOne))
         {
             yield return c;
@@ -409,16 +409,16 @@ internal static unsafe class MpfrExact
 
     private static IEnumerable<(string, Binary, string, Gen, Gen)> BinaryCases(Gen any, Gen mod, Gen pos, Gen posMod)
     {
-        yield return ("add", Real.Add, "mpfr_add", any, any);
-        yield return ("sub", Real.Subtract, "mpfr_sub", any, any);
-        yield return ("mul", Real.Multiply, "mpfr_mul", any, any);
-        yield return ("div", Real.Divide, "mpfr_div", any, any);
-        yield return ("pow", Real.Pow, "mpfr_pow", pos, mod);
-        yield return ("atan2", Real.Atan2, "mpfr_atan2", any, any);
-        yield return ("hypot", Real.Hypot, "mpfr_hypot", any, any);
-        yield return ("fmod", Real.TruncatedRemainder, "mpfr_fmod", any, any);
-        yield return ("remainder", Real.Ieee754Remainder, "mpfr_remainder", any, any);
-        yield return ("dim", Real.PositiveDifference, "mpfr_dim", any, any);
+        yield return ("add", BigFloat.Add, "mpfr_add", any, any);
+        yield return ("sub", BigFloat.Subtract, "mpfr_sub", any, any);
+        yield return ("mul", BigFloat.Multiply, "mpfr_mul", any, any);
+        yield return ("div", BigFloat.Divide, "mpfr_div", any, any);
+        yield return ("pow", BigFloat.Pow, "mpfr_pow", pos, mod);
+        yield return ("atan2", BigFloat.Atan2, "mpfr_atan2", any, any);
+        yield return ("hypot", BigFloat.Hypot, "mpfr_hypot", any, any);
+        yield return ("fmod", BigFloat.TruncatedRemainder, "mpfr_fmod", any, any);
+        yield return ("remainder", BigFloat.Ieee754Remainder, "mpfr_remainder", any, any);
+        yield return ("dim", BigFloat.PositiveDifference, "mpfr_dim", any, any);
         foreach (var c in ExtraBinaryCases(any, mod, pos, posMod))
         {
             yield return c;
@@ -428,46 +428,46 @@ internal static unsafe class MpfrExact
     // Functions added beyond the original surface register here.
     private static IEnumerable<(string, Unary, string, Gen)> ExtraUnaryCases(Gen any, Gen mod, Gen pos, Gen unit, Gen big, Gen posMod, Gen geOne)
     {
-        Gen quarter = (r, p) => r.Next(3) == 0 ? Real.FromBigInt(new BigInt(r.Next(-64, 64)), 16).ShiftRight(2) : mod(r, p);
-        Gen small = (r, p) => RandomReal(r, p, -20, 4, allowNeg: true);
-        Gen gt = (r, p) => Real.Add(Real.MinusOne, RandomReal(r, p, -30, 20, allowNeg: false), p + 64);
-        yield return ("sec", Real.Sec, "mpfr_sec", big);
-        yield return ("csc", Real.Csc, "mpfr_csc", big);
-        yield return ("cot", Real.Cot, "mpfr_cot", big);
-        yield return ("sech", Real.Sech, "mpfr_sech", mod);
-        yield return ("csch", Real.Csch, "mpfr_csch", mod);
-        yield return ("coth", Real.Coth, "mpfr_coth", mod);
-        yield return ("sinpi", Real.SinPi, "mpfr_sinpi", quarter);
-        yield return ("cospi", Real.CosPi, "mpfr_cospi", quarter);
-        yield return ("tanpi", Real.TanPi, "mpfr_tanpi", quarter);
-        yield return ("exp2m1", Real.Exp2M1, "mpfr_exp2m1", quarter);
-        yield return ("exp10m1", Real.Exp10M1, "mpfr_exp10m1", quarter);
-        yield return ("log2p1", Real.Log2P1, "mpfr_log2p1", gt);
-        yield return ("log10p1", Real.Log10P1, "mpfr_log10p1", gt);
-        yield return ("gamma", Real.Gamma, "mpfr_gamma", small);
-        yield return ("lngamma", Real.LogGamma, "mpfr_lngamma", small);
-        yield return ("digamma", Real.Digamma, "mpfr_digamma", small);
-        yield return ("erf", Real.Erf, "mpfr_erf", small);
-        yield return ("erfc", Real.Erfc, "mpfr_erfc", small);
-        yield return ("zeta", Real.Zeta, "mpfr_zeta", small);
-        yield return ("eint", Real.ExponentialIntegral, "mpfr_eint", small);
-        yield return ("li2", Real.Dilogarithm, "mpfr_li2", any);
-        yield return ("j0", (x, p, r) => Real.BesselJ(0, x, p, r), "mpfr_j0", small);
-        yield return ("j1", (x, p, r) => Real.BesselJ(1, x, p, r), "mpfr_j1", small);
-        yield return ("y0", (x, p, r) => Real.BesselY(0, x, p, r), "mpfr_y0", (r, p) => RandomReal(r, p, -20, 4, allowNeg: false));
-        yield return ("y1", (x, p, r) => Real.BesselY(1, x, p, r), "mpfr_y1", (r, p) => RandomReal(r, p, -20, 4, allowNeg: false));
-        yield return ("ai", Real.AiryAi, "mpfr_ai", (r, p) => RandomReal(r, p, -20, 3, allowNeg: true));
+        Gen quarter = (r, p) => r.Next(3) == 0 ? BigFloat.FromBigInt(new BigInt(r.Next(-64, 64)), 16).ShiftRight(2) : mod(r, p);
+        Gen small = (r, p) => RandomBigFloat(r, p, -20, 4, allowNeg: true);
+        Gen gt = (r, p) => BigFloat.Add(BigFloat.MinusOne, RandomBigFloat(r, p, -30, 20, allowNeg: false), p + 64);
+        yield return ("sec", BigFloat.Sec, "mpfr_sec", big);
+        yield return ("csc", BigFloat.Csc, "mpfr_csc", big);
+        yield return ("cot", BigFloat.Cot, "mpfr_cot", big);
+        yield return ("sech", BigFloat.Sech, "mpfr_sech", mod);
+        yield return ("csch", BigFloat.Csch, "mpfr_csch", mod);
+        yield return ("coth", BigFloat.Coth, "mpfr_coth", mod);
+        yield return ("sinpi", BigFloat.SinPi, "mpfr_sinpi", quarter);
+        yield return ("cospi", BigFloat.CosPi, "mpfr_cospi", quarter);
+        yield return ("tanpi", BigFloat.TanPi, "mpfr_tanpi", quarter);
+        yield return ("exp2m1", BigFloat.Exp2M1, "mpfr_exp2m1", quarter);
+        yield return ("exp10m1", BigFloat.Exp10M1, "mpfr_exp10m1", quarter);
+        yield return ("log2p1", BigFloat.Log2P1, "mpfr_log2p1", gt);
+        yield return ("log10p1", BigFloat.Log10P1, "mpfr_log10p1", gt);
+        yield return ("gamma", BigFloat.Gamma, "mpfr_gamma", small);
+        yield return ("lngamma", BigFloat.LogGamma, "mpfr_lngamma", small);
+        yield return ("digamma", BigFloat.Digamma, "mpfr_digamma", small);
+        yield return ("erf", BigFloat.Erf, "mpfr_erf", small);
+        yield return ("erfc", BigFloat.Erfc, "mpfr_erfc", small);
+        yield return ("zeta", BigFloat.Zeta, "mpfr_zeta", small);
+        yield return ("eint", BigFloat.ExponentialIntegral, "mpfr_eint", small);
+        yield return ("li2", BigFloat.Dilogarithm, "mpfr_li2", any);
+        yield return ("j0", (x, p, r) => BigFloat.BesselJ(0, x, p, r), "mpfr_j0", small);
+        yield return ("j1", (x, p, r) => BigFloat.BesselJ(1, x, p, r), "mpfr_j1", small);
+        yield return ("y0", (x, p, r) => BigFloat.BesselY(0, x, p, r), "mpfr_y0", (r, p) => RandomBigFloat(r, p, -20, 4, allowNeg: false));
+        yield return ("y1", (x, p, r) => BigFloat.BesselY(1, x, p, r), "mpfr_y1", (r, p) => RandomBigFloat(r, p, -20, 4, allowNeg: false));
+        yield return ("ai", BigFloat.AiryAi, "mpfr_ai", (r, p) => RandomBigFloat(r, p, -20, 3, allowNeg: true));
     }
 
     private static IEnumerable<(string, Binary, string, Gen, Gen)> ExtraBinaryCases(Gen any, Gen mod, Gen pos, Gen posMod)
     {
-        Gen small = (r, p) => RandomReal(r, p, -12, 4, allowNeg: true);
-        yield return ("agm", Real.ArithmeticGeometricMean, "mpfr_agm", pos, pos);
-        yield return ("beta", Real.Beta, "mpfr_beta", small, small);
-        yield return ("powr", Real.Powr, "mpfr_powr", pos, mod);
+        Gen small = (r, p) => RandomBigFloat(r, p, -12, 4, allowNeg: true);
+        yield return ("agm", BigFloat.ArithmeticGeometricMean, "mpfr_agm", pos, pos);
+        yield return ("beta", BigFloat.Beta, "mpfr_beta", small, small);
+        yield return ("powr", BigFloat.Powr, "mpfr_powr", pos, mod);
     }
 
-    private static void Check(string name, int prec, int rnd, string args, Real ours, Mpfr.MpfrT* mr)
+    private static void Check(string name, int prec, int rnd, string args, BigFloat ours, Mpfr.MpfrT* mr)
     {
         string? diff = Diff(ours, ref *mr, prec);
         s_checks++;
@@ -477,7 +477,7 @@ internal static unsafe class MpfrExact
         }
     }
 
-    private static string Show(Real x) => x.IsNumber
+    private static string Show(BigFloat x) => x.IsNumber
         ? $"{(x.SignBit ? "-" : "")}0x{x.Mantissa.ToString(16)}p{x.Exponent}[{x.Precision}]"
         : x.ToString();
 
@@ -503,7 +503,7 @@ internal static unsafe class MpfrExact
         }
     }
 
-    private static string? Diff(Real ours, ref Mpfr.MpfrT m, int prec)
+    private static string? Diff(BigFloat ours, ref Mpfr.MpfrT m, int prec)
     {
         if (NanP(ref m) != 0)
         {
@@ -546,7 +546,7 @@ internal static unsafe class MpfrExact
         return $"mpfr={mz.ToString(16)}*2^{e} ours={om.ToString(16)}*2^{ours.Exponent}";
     }
 
-    internal static Mpfr.MpfrT* ToMpfr(Real x)
+    internal static Mpfr.MpfrT* ToMpfr(BigFloat x)
     {
         Mpfr.MpfrT* p = NewMpfr(Math.Max(2, x.Precision));
         ref Mpfr.MpfrT m = ref *p;
@@ -578,7 +578,7 @@ internal static unsafe class MpfrExact
         return p;
     }
 
-    internal static Real RandomReal(Random rng, int prec, int emin, int emax, bool allowNeg)
+    internal static BigFloat RandomBigFloat(Random rng, int prec, int emin, int emax, bool allowNeg)
     {
         byte[] b = new byte[(prec + 7) / 8 + 1];
         rng.NextBytes(b);
@@ -600,7 +600,7 @@ internal static unsafe class MpfrExact
             m = (BigInt.One << prec) - 1;
         }
         int exp = rng.Next(emin, emax + 1);
-        Real r = Real.FromBigInt(m, prec).ShiftLeft(exp - prec);
+        BigFloat r = BigFloat.FromBigInt(m, prec).ShiftLeft(exp - prec);
         return allowNeg && rng.Next(2) == 0 ? -r : r;
     }
 }

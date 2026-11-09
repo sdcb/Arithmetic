@@ -2,7 +2,7 @@ using System.Diagnostics;
 
 namespace Sdcb.Arithmetic;
 
-public readonly partial struct Real
+public readonly partial struct BigFloat
 {
     /// <summary>
     /// An approximation step: computes the value at working precision wp, returning
@@ -15,7 +15,7 @@ public readonly partial struct Real
     /// Ziv's onion-peeling loop: retries with growing working precision until the
     /// approximation rounds unambiguously to prec bits.
     /// </summary>
-    internal static Real Ziv(int prec, RealRounding rnd, ZivStep step)
+    internal static BigFloat Ziv(int prec, RoundingMode rnd, ZivStep step)
     {
         for (int wp = prec + 40; ; wp += Math.Max(64, wp >> 1))
         {
@@ -47,7 +47,7 @@ public readonly partial struct Real
     /// True when a magnitude m known to within ±errUlps ulps rounds unambiguously
     /// to prec bits in all rounding modes (conservative version of mpfr_can_round).
     /// </summary>
-    internal static bool CanRound(BigInt m, long errUlps, int prec, RealRounding rnd)
+    internal static bool CanRound(BigInt m, long errUlps, int prec, RoundingMode rnd)
     {
         long bits = m.GetBitLength();
         long drop = bits - prec - 1; // keep 1 spare bit against msb changes
@@ -67,7 +67,7 @@ public readonly partial struct Real
         {
             return false;
         }
-        if (rnd == RealRounding.NearestEven)
+        if (rnd == RoundingMode.NearestEven)
         {
             BigInt half = window >> 1;
             BigInt diff = (d - half).Abs();
@@ -160,7 +160,7 @@ public readonly partial struct Real
         return s;
     }
 
-    /// <summary>Converts this Real to fixed point at wp fractional bits (truncated).</summary>
+    /// <summary>Converts this BigFloat to fixed point at wp fractional bits (truncated).</summary>
     internal BigInt ToFixed(int wp)
     {
         Debug.Assert(_kind == Kind.Normal);
@@ -169,8 +169,8 @@ public readonly partial struct Real
         return IsNeg ? -mag : mag;
     }
 
-    /// <summary>Builds a Real from a fixed-point value (round at prec bits).</summary>
-    internal static Real FromFixed(BigInt f, int wp, int prec, RealRounding rnd)
+    /// <summary>Builds a BigFloat from a fixed-point value (round at prec bits).</summary>
+    internal static BigFloat FromFixed(BigInt f, int wp, int prec, RoundingMode rnd)
     {
         if (f.IsZero)
         {
@@ -183,7 +183,7 @@ public readonly partial struct Real
     /// Approximation "f(x) = x + delta" for tiny x where |delta| &lt;&lt; ulp(x) at wp bits:
     /// returns x nudged by one sub-ulp in the direction of deltaSign (a value-space sign).
     /// </summary>
-    private static (BigInt, long, long) NearX(Real x, int wp, int deltaSign)
+    private static (BigInt, long, long) NearX(BigFloat x, int wp, int deltaSign)
     {
         Debug.Assert(x._kind == Kind.Normal);
         int pad = (int)Math.Clamp(wp - x.Precision + 16, 16, 1 << 24);

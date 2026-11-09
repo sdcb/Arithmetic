@@ -61,7 +61,7 @@ public readonly partial struct BigInt
     public Half ToHalf() => (Half)ToIeee(IeeeFormat.Binary16);
 
     private double ToIeee(IeeeFormat format) =>
-        _size == 0 ? 0.0 : Real.RoundToIeee(Abs(), 0, sticky: false, _size < 0, format, RealRounding.NearestEven);
+        _size == 0 ? 0.0 : BigFloat.RoundToIeee(Abs(), 0, sticky: false, _size < 0, format, RoundingMode.NearestEven);
 
     private bool TryToDecimal(out decimal result)
     {

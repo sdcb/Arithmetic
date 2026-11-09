@@ -40,7 +40,7 @@ public readonly partial struct DoubleDouble :
 
     private int LayoutExponent => _hi == 0.0 || !double.IsFinite(_hi) ? 0 : ILogB(this);
 
-    private BigInt LayoutSignificand => _hi == 0.0 || !double.IsFinite(_hi) ? BigInt.Zero : ToRealExact().Mantissa;
+    private BigInt LayoutSignificand => _hi == 0.0 || !double.IsFinite(_hi) ? BigInt.Zero : ToBigFloatExact().Mantissa;
 
     int IFloatingPoint<DoubleDouble>.GetExponentByteCount() => sizeof(int);
 

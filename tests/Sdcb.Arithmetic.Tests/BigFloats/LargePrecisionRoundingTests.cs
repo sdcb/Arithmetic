@@ -9,8 +9,8 @@ namespace Sdcb.Arithmetic.Tests;
 /// </summary>
 public class LargePrecisionRoundingTests
 {
-    private static readonly RealRounding[] Modes =
-        [RealRounding.NearestEven, RealRounding.TowardZero, RealRounding.TowardPositive, RealRounding.TowardNegative, RealRounding.AwayFromZero];
+    private static readonly RoundingMode[] Modes =
+        [RoundingMode.NearestEven, RoundingMode.TowardZero, RoundingMode.TowardPositive, RoundingMode.TowardNegative, RoundingMode.AwayFromZero];
 
     private static readonly int[] Precs = [300, 640, 1000, 1300, 2000, 4097, 9000];
 
@@ -22,9 +22,9 @@ public class LargePrecisionRoundingTests
         return v | (BigInt.One << (bits - 1));
     }
 
-    private static Real Exact(BigInt m, long exp = 0) => Real.FromBigInt(m, exp, (int)Math.Max(2, m.Abs().GetBitLength()));
+    private static BigFloat Exact(BigInt m, long exp = 0) => BigFloat.FromBigInt(m, exp, (int)Math.Max(2, m.Abs().GetBitLength()));
 
-    private static void AssertSame(Real expected, Real actual, string msg)
+    private static void AssertSame(BigFloat expected, BigFloat actual, string msg)
     {
         Assert.True(expected.Equals(actual) && expected.Precision == actual.Precision, $"{msg}: expected {expected}, got {actual}");
     }
@@ -41,11 +41,11 @@ public class LargePrecisionRoundingTests
                 BigInt qm = RandomBits(rng, p + (i < 3 ? 0 : 1));
                 // i % 3: exact quotient, just above, just below (q*y ± 1).
                 BigInt xm = qm * ym + (i % 3 == 0 ? BigInt.Zero : i % 3 == 1 ? BigInt.One : BigInt.MinusOne);
-                Real x = Exact(rng.Next(2) == 0 ? xm : -xm, rng.Next(-100, 100)), y = Exact(ym, rng.Next(-100, 100));
-                foreach (RealRounding rnd in Modes)
+                BigFloat x = Exact(rng.Next(2) == 0 ? xm : -xm, rng.Next(-100, 100)), y = Exact(ym, rng.Next(-100, 100));
+                foreach (RoundingMode rnd in Modes)
                 {
-                    Real expected = Real.FromRational(x.ToRational() / y.ToRational(), p, rnd);
-                    AssertSame(expected, Real.Divide(x, y, p, rnd), $"div p={p} case={i} {rnd}");
+                    BigFloat expected = BigFloat.FromRational(x.ToRational() / y.ToRational(), p, rnd);
+                    AssertSame(expected, BigFloat.Divide(x, y, p, rnd), $"div p={p} case={i} {rnd}");
                 }
             }
         }
@@ -63,15 +63,15 @@ public class LargePrecisionRoundingTests
                 BigInt r = RandomBits(rng, p + (i < 3 ? 0 : 1));
                 BigInt nm = r * r + (i % 3 == 0 ? BigInt.Zero : i % 3 == 1 ? BigInt.One : BigInt.MinusOne);
                 long e = 2 * rng.Next(-100, 100);
-                Real x = Exact(nm, e);
-                foreach (RealRounding rnd in Modes)
+                BigFloat x = Exact(nm, e);
+                foreach (RoundingMode rnd in Modes)
                 {
                     // sqrt(nm * 2^e) at precision p: floor(sqrt(nm * 4^k)) with k large plus sticky.
                     long k = p + 8;
                     BigInt scaled = nm << (int)(2 * k);
                     BigInt root = BigInt.Sqrt(scaled, out BigInt rem);
-                    Real expected = Real.FromRational(new BigRational(root * 2 + (rem.IsZero ? BigInt.Zero : BigInt.One), BigInt.One << (int)(k + 1)) * (e >= 0 ? new BigRational(BigInt.One << (int)(e / 2)) : new BigRational(BigInt.One, BigInt.One << (int)(-e / 2))), p, rnd);
-                    AssertSame(expected, Real.Sqrt(x, p, rnd), $"sqrt p={p} case={i} {rnd}");
+                    BigFloat expected = BigFloat.FromRational(new BigRational(root * 2 + (rem.IsZero ? BigInt.Zero : BigInt.One), BigInt.One << (int)(k + 1)) * (e >= 0 ? new BigRational(BigInt.One << (int)(e / 2)) : new BigRational(BigInt.One, BigInt.One << (int)(-e / 2))), p, rnd);
+                    AssertSame(expected, BigFloat.Sqrt(x, p, rnd), $"sqrt p={p} case={i} {rnd}");
                 }
             }
         }

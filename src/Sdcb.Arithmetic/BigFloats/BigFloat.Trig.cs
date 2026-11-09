@@ -2,14 +2,14 @@ using System.Diagnostics;
 
 namespace Sdcb.Arithmetic;
 
-public readonly partial struct Real
+public readonly partial struct BigFloat
 {
     // ---------------------------------------------------------------
     // Trigonometric functions (mpfr_sin/cos/tan/asin/acos/atan/atan2)
     // ---------------------------------------------------------------
 
     /// <summary>Correctly-rounded sine (mpfr_sin).</summary>
-    public static Real Sin(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Sin(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         if (x._kind is Kind.NaN or Kind.Inf)
@@ -33,7 +33,7 @@ public readonly partial struct Real
     }
 
     /// <summary>Correctly-rounded cosine (mpfr_cos).</summary>
-    public static Real Cos(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Cos(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         if (x._kind is Kind.NaN or Kind.Inf)
@@ -53,7 +53,7 @@ public readonly partial struct Real
     }
 
     /// <summary>Correctly-rounded tangent (mpfr_tan).</summary>
-    public static Real Tan(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Tan(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         if (x._kind is Kind.NaN or Kind.Inf)
@@ -81,14 +81,14 @@ public readonly partial struct Real
     }
 
     /// <summary>Computes sin and cos with one reduction (mpfr_sin_cos).</summary>
-    public static (Real Sin, Real Cos) SinCos(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static (BigFloat Sin, BigFloat Cos) SinCos(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
         => (Sin(x, precision, rounding), Cos(x, precision, rounding));
 
     /// <summary>
     /// Core sin/cos evaluation at working precision: reduces mod π/2, evaluates a
     /// short Taylor series after j halvings, then applies double-angle steps.
     /// </summary>
-    private static (BigInt s, BigInt c, int wpi, long err) SinCosCore(Real x, int wp)
+    private static (BigInt s, BigInt c, int wpi, long err) SinCosCore(BigFloat x, int wp)
     {
         int j = (int)(Math.Sqrt(wp) * ExpReductionFactor) + 2;
         int wpi = wp + 3 * j + 48;
@@ -168,7 +168,7 @@ public readonly partial struct Real
     // ---------------------------------------------------------------
 
     /// <summary>Correctly-rounded arctangent (mpfr_atan).</summary>
-    public static Real Atan(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Atan(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
@@ -232,7 +232,7 @@ public readonly partial struct Real
     }
 
     /// <summary>Correctly-rounded arcsine (mpfr_asin); NaN outside [-1, 1].</summary>
-    public static Real Asin(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Asin(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
@@ -280,7 +280,7 @@ public readonly partial struct Real
     }
 
     /// <summary>Correctly-rounded arccosine (mpfr_acos); NaN outside [-1, 1].</summary>
-    public static Real Acos(Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Acos(BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, x.Precision);
         switch (x._kind)
@@ -322,7 +322,7 @@ public readonly partial struct Real
     }
 
     /// <summary>Two-argument arctangent (mpfr_atan2) following the usual quadrant conventions.</summary>
-    public static Real Atan2(Real y, Real x, int precision = 0, RealRounding rounding = RealRounding.NearestEven)
+    public static BigFloat Atan2(BigFloat y, BigFloat x, int precision = 0, RoundingMode rounding = RoundingMode.NearestEven)
     {
         int prec = ResolvePrecision(precision, Math.Max(y.Precision, x.Precision));
         if (y._kind == Kind.NaN || x._kind == Kind.NaN)
@@ -372,11 +372,11 @@ public readonly partial struct Real
                 return (y.IsNeg ? -v : v, (long)-wp, 64);
             });
         }
-        // Both finite nonzero: work on q = |y/x| as a Real to handle extreme ratios.
+        // Both finite nonzero: work on q = |y/x| as a BigFloat to handle extreme ratios.
         return Ziv(prec, rounding, wp =>
         {
             int wpi = wp + 64;
-            Real q = Divide(y.Abs(), x.Abs(), wpi + 8, RealRounding.TowardZero);
+            BigFloat q = Divide(y.Abs(), x.Abs(), wpi + 8, RoundingMode.TowardZero);
             (BigInt m, long e, long err) r;
             if (q.BinaryExponent < -(wp / 2) - 16)
             {
@@ -392,7 +392,7 @@ public readonly partial struct Real
             else if (q.BinaryExponent > wp + 16)
             {
                 BigInt half = PiFixed(wpi).ShiftRightTruncate(1);
-                Real inv = Divide(One, q, wpi + 8, RealRounding.TowardZero);
+                BigFloat inv = Divide(One, q, wpi + 8, RoundingMode.TowardZero);
                 BigInt v = half - (inv._kind == Kind.Normal ? inv.ToFixed(wpi) : BigInt.Zero);
                 if (x.IsNeg)
                 {

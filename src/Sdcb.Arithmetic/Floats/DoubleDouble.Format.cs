@@ -9,7 +9,7 @@ public readonly partial struct DoubleDouble
     private const int DefaultDigits = 32;
 
     // ---------------------------------------------------------------
-    // Formatting (invariant culture, through the exact Real value)
+    // Formatting (invariant culture, through the exact BigFloat value)
     // ---------------------------------------------------------------
 
     /// <summary>
@@ -22,7 +22,7 @@ public readonly partial struct DoubleDouble
         {
             return ToString(DefaultDigits);
         }
-        Real exact = ToRealExact();
+        BigFloat exact = ToBigFloatExact();
         for (int nd = DefaultDigits; ; nd = nd < 40 ? nd + 1 : nd * 2)
         {
             string s = exact.ToString(nd);
@@ -37,7 +37,7 @@ public readonly partial struct DoubleDouble
     public string ToString(int significantDigits)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(significantDigits, 1);
-        return ToRealExact().ToString(significantDigits);
+        return ToBigFloatExact().ToString(significantDigits);
     }
 
     /// <summary>
@@ -77,23 +77,23 @@ public readonly partial struct DoubleDouble
         NumberText.TryWriteUtf8(ToString(format), utf8Destination, out bytesWritten);
 
     // ---------------------------------------------------------------
-    // Parsing: the decimal is rounded to a Real with enough bits for every digit, then to the
+    // Parsing: the decimal is rounded to a BigFloat with enough bits for every digit, then to the
     // nearest double-double (Hi = RN(v), Lo = RN(v - Hi)).
     // ---------------------------------------------------------------
 
     private static bool TryParseInvariant(ReadOnlySpan<char> s, out DoubleDouble result)
     {
         int prec = (int)Math.Min(4L * s.Length + 192, 1 << 20);
-        if (Real.TryParse(s, prec, RealRounding.NearestEven, out Real r))
+        if (BigFloat.TryParse(s, prec, RoundingMode.NearestEven, out BigFloat r))
         {
-            result = FromReal(r);
+            result = FromBigFloat(r);
             return true;
         }
         result = default;
         return false;
     }
 
-    /// <summary>Parses the invariant form "[±]digits[.digits][e±digits]", "NaN" or "[±]Infinity" (the provider is ignored, like <see cref="Real"/>).</summary>
+    /// <summary>Parses the invariant form "[±]digits[.digits][e±digits]", "NaN" or "[±]Infinity" (the provider is ignored, like <see cref="BigFloat"/>).</summary>
     public static DoubleDouble Parse(string s, IFormatProvider? provider = null)
     {
         ArgumentNullException.ThrowIfNull(s);

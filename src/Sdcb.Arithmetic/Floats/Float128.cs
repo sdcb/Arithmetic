@@ -10,11 +10,11 @@ namespace Sdcb.Arithmetic;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The basic operations (<c>+ - * /</c>, <see cref="Sqrt(Float128, RealRounding)"/>,
-/// <see cref="FusedMultiplyAdd(Float128, Float128, Float128, RealRounding)"/>, remainders, rounding to
+/// The basic operations (<c>+ - * /</c>, <see cref="Sqrt(Float128, RoundingMode)"/>,
+/// <see cref="FusedMultiplyAdd(Float128, Float128, Float128, RoundingMode)"/>, remainders, rounding to
 /// integers and all conversions) are correctly rounded in pure integer arithmetic with no allocations,
 /// including subnormals, signed zeros, infinities and overflow per rounding mode. Operators round to
-/// nearest-even; the static methods take an optional <see cref="RealRounding"/>.
+/// nearest-even; the static methods take an optional <see cref="RoundingMode"/>.
 /// </para>
 /// <para>
 /// NaN: every operation with a NaN operand (and every invalid operation) returns the canonical
@@ -23,8 +23,8 @@ namespace Sdcb.Arithmetic;
 /// the raw bits, NaN included.
 /// </para>
 /// <para>
-/// Elementary functions (exp, log, trigonometric, ...) are evaluated through <see cref="Real"/> and are
-/// also correctly rounded (see <see cref="Exp(Float128, RealRounding)"/>).
+/// Elementary functions (exp, log, trigonometric, ...) are evaluated through <see cref="BigFloat"/> and are
+/// also correctly rounded (see <see cref="Exp(Float128, RoundingMode)"/>).
 /// </para>
 /// </remarks>
 public readonly partial struct Float128 : IEquatable<Float128>, IComparable<Float128>, IComparable
@@ -172,14 +172,14 @@ public readonly partial struct Float128 : IEquatable<Float128>, IComparable<Floa
     /// <summary>
     /// The largest finite value (directed rounding toward zero) or ±∞, for an overflowing result.
     /// </summary>
-    private static Float128 Huge(bool negative, RealRounding rounding)
+    private static Float128 Huge(bool negative, RoundingMode rounding)
     {
         bool toInf = rounding switch
         {
-            RealRounding.NearestEven or RealRounding.AwayFromZero => true,
-            RealRounding.TowardZero => false,
-            RealRounding.TowardPositive => !negative,
-            RealRounding.TowardNegative => negative,
+            RoundingMode.NearestEven or RoundingMode.AwayFromZero => true,
+            RoundingMode.TowardZero => false,
+            RoundingMode.TowardPositive => !negative,
+            RoundingMode.TowardNegative => negative,
             _ => throw new ArgumentOutOfRangeException(nameof(rounding)),
         };
         return new((toInf ? InfBits : MaxBits) | SignBits(negative));
@@ -238,9 +238,9 @@ public readonly partial struct Float128 : IEquatable<Float128>, IComparable<Floa
     /// in SoftFloat's roundPackToF128). Handles subnormal results (exp &lt; 0), overflow and every rounding mode.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static Float128 RoundPack(bool sign, int exp, UInt128 sig, ulong extra, RealRounding rounding)
+    private static Float128 RoundPack(bool sign, int exp, UInt128 sig, ulong extra, RoundingMode rounding)
     {
-        if (rounding == RealRounding.NearestEven && (uint)exp < 0x7FFD)
+        if (rounding == RoundingMode.NearestEven && (uint)exp < 0x7FFD)
         {
             // Normal result, nearest-even: a carry out of bit 112 bumps the exponent field and cannot reach ∞.
             ulong lo = (ulong)sig, hi = Hi64(sig) + ((ulong)(uint)exp << 48);
@@ -262,7 +262,7 @@ public readonly partial struct Float128 : IEquatable<Float128>, IComparable<Floa
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static Float128 RoundPackSlow(bool sign, int exp, UInt128 sig, ulong extra, RealRounding rounding)
+    private static Float128 RoundPackSlow(bool sign, int exp, UInt128 sig, ulong extra, RoundingMode rounding)
     {
         if ((uint)exp >= 0x7FFD)
         {
@@ -276,7 +276,7 @@ public readonly partial struct Float128 : IEquatable<Float128>, IComparable<Floa
                 return Huge(sign, rounding);
             }
         }
-        if (rounding == RealRounding.NearestEven)
+        if (rounding == RoundingMode.NearestEven)
         {
             if ((long)extra < 0)
             {
@@ -300,12 +300,12 @@ public readonly partial struct Float128 : IEquatable<Float128>, IComparable<Floa
     }
 
     /// <summary>Whether an inexact result rounds away from zero under a directed mode.</summary>
-    private static bool DirectedUp(bool sign, RealRounding rounding) => rounding switch
+    private static bool DirectedUp(bool sign, RoundingMode rounding) => rounding switch
     {
-        RealRounding.TowardZero => false,
-        RealRounding.TowardPositive => !sign,
-        RealRounding.TowardNegative => sign,
-        RealRounding.AwayFromZero => true,
+        RoundingMode.TowardZero => false,
+        RoundingMode.TowardPositive => !sign,
+        RoundingMode.TowardNegative => sign,
+        RoundingMode.AwayFromZero => true,
         _ => throw new ArgumentOutOfRangeException(nameof(rounding)),
     };
 
@@ -313,7 +313,7 @@ public readonly partial struct Float128 : IEquatable<Float128>, IComparable<Floa
     /// Normalizes a nonzero sig (any width) with value sign * sig * 2^(exp - 16494), then rounds and packs it.
     /// Exact when sig has at most 113 significant bits and the result is in range.
     /// </summary>
-    private static Float128 NormRoundPack(bool sign, int exp, UInt128 sig, RealRounding rounding)
+    private static Float128 NormRoundPack(bool sign, int exp, UInt128 sig, RoundingMode rounding)
     {
         Debug.Assert(sig != 0);
         int shift = (int)UInt128.LeadingZeroCount(sig) - 15;
@@ -337,7 +337,7 @@ public readonly partial struct Float128 : IEquatable<Float128>, IComparable<Floa
     /// Rounds sign * (m + θ) * 2^e2 (θ ∈ (0,1) iff sticky; m &gt; 0). When sticky is set m must carry at least
     /// 115 significant bits (or the result must be far below the subnormal range).
     /// </summary>
-    internal static Float128 RoundWide(bool negative, UInt128 m, long e2, bool sticky, RealRounding rounding)
+    internal static Float128 RoundWide(bool negative, UInt128 m, long e2, bool sticky, RoundingMode rounding)
     {
         Debug.Assert(m != 0);
         int p = 127 - (int)UInt128.LeadingZeroCount(m);
@@ -366,7 +366,7 @@ public readonly partial struct Float128 : IEquatable<Float128>, IComparable<Floa
     }
 
     /// <summary>Rounds sign * (mag + θ) * 2^e2 for an arbitrary BigInt magnitude (θ ∈ (0,1) iff sticky).</summary>
-    internal static Float128 RoundBig(bool negative, BigInt mag, long e2, bool sticky, RealRounding rounding)
+    internal static Float128 RoundBig(bool negative, BigInt mag, long e2, bool sticky, RoundingMode rounding)
     {
         Debug.Assert(mag.Sign > 0);
         long bits = mag.GetBitLength();
@@ -381,7 +381,7 @@ public readonly partial struct Float128 : IEquatable<Float128>, IComparable<Floa
     }
 
     /// <summary>Correctly rounds sign * num / den * 2^e2 (num, den &gt; 0).</summary>
-    internal static Float128 RoundRational(bool negative, BigInt num, BigInt den, long e2, RealRounding rounding)
+    internal static Float128 RoundRational(bool negative, BigInt num, BigInt den, long e2, RoundingMode rounding)
     {
         Debug.Assert(num.Sign > 0 && den.Sign > 0);
         long e0 = num.GetBitLength() - den.GetBitLength() + e2; // value in (2^(e0-1), 2^(e0+1))

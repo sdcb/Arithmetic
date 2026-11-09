@@ -29,8 +29,8 @@ public readonly partial struct QuadDouble
         return new QuadDouble(x0, x1, x2);
     }
 
-    /// <summary>Correctly rounded (nearest-even) to binary128 via the exact Real sum of the components.</summary>
-    public static explicit operator Float128(QuadDouble value) => Float128.FromReal(value);
+    /// <summary>Correctly rounded (nearest-even) to binary128 via the exact BigFloat sum of the components.</summary>
+    public static explicit operator Float128(QuadDouble value) => Float128.FromBigFloat(value);
 }
 
 public readonly partial struct Float128

@@ -522,7 +522,7 @@ public readonly partial struct QuadDouble
 
     /// <summary>
     /// x - trunc(x / y)·y with the sign of x (like <see cref="Math.IEEERemainder"/>'s truncating sibling,
-    /// C# <see cref="double"/> %). The exact remainder is computed through <see cref="Real"/> and then
+    /// C# <see cref="double"/> %). The exact remainder is computed through <see cref="BigFloat"/> and then
     /// rounded to QD, so the result is accurate even for huge quotients.
     /// </summary>
     public static QuadDouble TruncatedRemainder(QuadDouble x, QuadDouble y)
@@ -539,15 +539,15 @@ public readonly partial struct QuadDouble
         {
             return x;
         }
-        Real rx = ToRealExact(x), ry = ToRealExact(y);
+        BigFloat rx = ToBigFloatExact(x), ry = ToBigFloatExact(y);
         int p = Math.Max(rx.Precision, ry.Precision);
-        QuadDouble r = FromReal(Real.TruncatedRemainder(rx, ry, p));
+        QuadDouble r = FromBigFloat(BigFloat.TruncatedRemainder(rx, ry, p));
         return r._x0 == 0 ? CopySign(Zero, x) : r;
     }
 
     /// <summary>
     /// (left · right) + addend. The product is formed in QD arithmetic; when the sum cancels by
-    /// more than 8 bits it is recomputed through <see cref="Real"/> (correctly rounded at 320 bits),
+    /// more than 8 bits it is recomputed through <see cref="BigFloat"/> (correctly rounded at 320 bits),
     /// so the result is accurate, though not correctly rounded, in every case.
     /// </summary>
     public static QuadDouble FusedMultiplyAdd(QuadDouble left, QuadDouble right, QuadDouble addend)
@@ -562,8 +562,8 @@ public readonly partial struct QuadDouble
         {
             return s;
         }
-        Real exact = Real.FusedMultiplyAdd(ToRealExact(left), ToRealExact(right), ToRealExact(addend), 320);
-        return FromReal(exact);
+        BigFloat exact = BigFloat.FusedMultiplyAdd(ToBigFloatExact(left), ToBigFloatExact(right), ToBigFloatExact(addend), 320);
+        return FromBigFloat(exact);
     }
 
     // ---------------------------------------------------------------

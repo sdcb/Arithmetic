@@ -63,7 +63,7 @@ public readonly partial struct DoubleDouble
     /// <summary>
     /// r = x - q·π/2 with |r| &lt;= ~π/4 and returns q mod 4. Up to |q| = 2^20 a Cody-Waite
     /// reduction with a three-word π/2 is used; for larger arguments, or when r cancels below
-    /// 2^-28 (x very close to a multiple of π/2), the reduction is done exactly with <see cref="Real"/>.
+    /// 2^-28 (x very close to a multiple of π/2), the reduction is done exactly with <see cref="BigFloat"/>.
     /// </summary>
     private static int ReduceHalfPi(DoubleDouble x, out DoubleDouble r)
     {
@@ -93,12 +93,12 @@ public readonly partial struct DoubleDouble
     private static int ReduceHalfPiExact(DoubleDouble x, out DoubleDouble r)
     {
         int prec = 320 + Math.Max(0, Math.ILogB(x._hi));
-        Real xr = x.ToRealExact();
-        Real halfPi = Real.Pi(prec).ShiftRight(1);
-        Real q = Real.Round(Real.Divide(xr, halfPi, prec));
-        Real rr = Real.Subtract(xr, Real.Multiply(q, halfPi, prec + 64), prec);
-        r = FromReal(rr);
-        Real q4 = Real.TruncatedRemainder(q, Real.FromDouble(4.0, 8), 8);
+        BigFloat xr = x.ToBigFloatExact();
+        BigFloat halfPi = BigFloat.Pi(prec).ShiftRight(1);
+        BigFloat q = BigFloat.Round(BigFloat.Divide(xr, halfPi, prec));
+        BigFloat rr = BigFloat.Subtract(xr, BigFloat.Multiply(q, halfPi, prec + 64), prec);
+        r = FromBigFloat(rr);
+        BigFloat q4 = BigFloat.TruncatedRemainder(q, BigFloat.FromDouble(4.0, 8), 8);
         return ((int)q4.ToDouble() + 4) & 3;
     }
 

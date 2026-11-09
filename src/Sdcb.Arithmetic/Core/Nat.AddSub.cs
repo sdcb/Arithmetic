@@ -7,7 +7,7 @@ namespace Sdcb.Arithmetic.Core;
 
 /// <summary>
 /// Low-level multi-precision natural number kernels operating on little-endian
-/// spans of 64-bit limbs (index 0 = least significant). The natural-number layer under BigInt, BigRational and Real.
+/// spans of 64-bit limbs (index 0 = least significant). The natural-number layer under BigInt, BigRational and BigFloat.
 /// All routines assume the caller has validated lengths; they are the hot inner
 /// loops of the library.
 /// </summary>
