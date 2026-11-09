@@ -105,6 +105,17 @@ public readonly partial struct DoubleDouble
     /// </summary>
     public static implicit operator BigFloat(DoubleDouble value) => value.ToBigFloatExact(BigFloat.DefaultPrecision);
 
+    /// <summary>The exact value as a <see cref="BigFloat"/> (same as the implicit conversion).</summary>
+    public BigFloat ToBigFloat() => ToBigFloatExact(BigFloat.DefaultPrecision);
+
+    /// <summary>Hi + Lo correctly rounded to float (nearest-even by default).</summary>
+    public float ToSingle(RoundingMode rounding = RoundingMode.NearestEven) =>
+        rounding == RoundingMode.NearestEven ? (float)this : ToBigFloatExact().ToSingle(rounding);
+
+    /// <summary>Hi + Lo correctly rounded to <see cref="System.Half"/> (nearest-even by default).</summary>
+    public System.Half ToHalf(RoundingMode rounding = RoundingMode.NearestEven) =>
+        rounding == RoundingMode.NearestEven ? (System.Half)this : ToBigFloatExact().ToHalf(rounding);
+
     /// <summary>The exact value as a BigFloat with at least <paramref name="minPrecision"/> bits.</summary>
     internal BigFloat ToBigFloatExact(int minPrecision = 2)
     {

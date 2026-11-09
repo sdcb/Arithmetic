@@ -98,7 +98,11 @@ public readonly partial struct QuadDouble
     /// </summary>
     public static explicit operator QuadDouble(BigFloat value) => FromBigFloat(value);
 
-    internal static QuadDouble FromBigFloat(BigFloat value)
+    /// <summary>
+    /// Rounds a <see cref="BigFloat"/> to quad-double by successive nearest-double extraction of the
+    /// exact residuals (same as the explicit conversion).
+    /// </summary>
+    public static QuadDouble FromBigFloat(BigFloat value)
     {
         if (value.IsNaN)
         {
@@ -133,6 +137,17 @@ public readonly partial struct QuadDouble
 
     /// <summary>The exact value (the precision is chosen from the components' exponent span).</summary>
     public static implicit operator BigFloat(QuadDouble value) => ToBigFloatExact(value);
+
+    /// <summary>The exact value as a <see cref="BigFloat"/> (same as the implicit conversion).</summary>
+    public BigFloat ToBigFloat() => ToBigFloatExact(this);
+
+    /// <summary>The value correctly rounded to float (nearest-even by default).</summary>
+    public float ToSingle(RoundingMode rounding = RoundingMode.NearestEven) =>
+        rounding == RoundingMode.NearestEven ? (float)this : ToBigFloatExact(this).ToSingle(rounding);
+
+    /// <summary>The value correctly rounded to <see cref="System.Half"/> (nearest-even by default).</summary>
+    public System.Half ToHalf(RoundingMode rounding = RoundingMode.NearestEven) =>
+        rounding == RoundingMode.NearestEven ? (System.Half)this : ToBigFloatExact(this).ToHalf(rounding);
 
     internal static BigFloat ToBigFloatExact(QuadDouble a)
     {

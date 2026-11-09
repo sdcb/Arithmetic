@@ -45,6 +45,36 @@ public class FixedFloatApiTests
     }
 
     [Fact]
+    public void ToSingleToHalfAndBigFloatRoundTrip()
+    {
+        var rng = new Random(26);
+        for (int i = 0; i < 3000; i++)
+        {
+            DoubleDouble dd = new(RandomDouble(rng, -140, 120), RandomDouble(rng, -200, -150));
+            QuadDouble qd = QuadDouble.Sqrt(new QuadDouble(Math.Abs(dd.Hi))) * Math.Sign(dd.Hi);
+            BigFloat edd = dd, eqd = qd;
+            Assert.Equal(0, dd.ToBigFloat().CompareTo(edd));
+            Assert.Equal(0, qd.ToBigFloat().CompareTo(eqd));
+            Assert.Equal(dd, DoubleDouble.FromBigFloat(dd.ToBigFloat()));
+            Assert.Equal(qd, QuadDouble.FromBigFloat(qd.ToBigFloat()));
+            foreach (RoundingMode m in Modes)
+            {
+                Assert.Equal(edd.ToSingle(m), dd.ToSingle(m));
+                Assert.Equal(eqd.ToSingle(m), qd.ToSingle(m));
+                Assert.Equal(edd.ToHalf(m), dd.ToHalf(m));
+                Assert.Equal(eqd.ToHalf(m), qd.ToHalf(m));
+            }
+        }
+    }
+
+    [Fact]
+    public void QuadDoubleMultiplyAddEstimateIsUnfused()
+    {
+        QuadDouble a = QuadDouble.Sqrt(2), b = QuadDouble.Sqrt(3);
+        Assert.Equal(a * b + QuadDouble.One, QuadDouble.MultiplyAddEstimate(a, b, QuadDouble.One));
+    }
+
+    [Fact]
     public void DoubleDoubleToDoubleSpecialValues()
     {
         Assert.True(double.IsNaN(DoubleDouble.NaN.ToDouble(RoundingMode.TowardZero)));

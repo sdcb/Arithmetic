@@ -546,6 +546,12 @@ public readonly partial struct QuadDouble
     }
 
     /// <summary>
+    /// left * right + addend, unfused: the product is first rounded to quad-double (fast; INumberBase).
+    /// Use <see cref="FusedMultiplyAdd"/> when the sum may cancel.
+    /// </summary>
+    public static QuadDouble MultiplyAddEstimate(QuadDouble left, QuadDouble right, QuadDouble addend) => left * right + addend;
+
+    /// <summary>
     /// (left · right) + addend. The product is formed in QD arithmetic; when the sum cancels by
     /// more than 8 bits it is recomputed through <see cref="BigFloat"/> (correctly rounded at 320 bits),
     /// so the result is accurate, though not correctly rounded, in every case.
