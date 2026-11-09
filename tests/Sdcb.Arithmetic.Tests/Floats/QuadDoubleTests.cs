@@ -212,6 +212,196 @@ public class QuadDoubleTests(ITestOutputHelper output)
         Assert.Equal(new QuadDouble(3), QuadDouble.Sqrt(9));
     }
 
+    /// <summary>A QD whose significand has only the leading <paramref name="bits"/> bits (an exact multiple of 2^(e - bits + 1)).</summary>
+    private static QuadDouble ShortQd(Random rng, int bits, int e)
+    {
+        Real m = Real.Zero;
+        for (int i = 0; i < bits; i += 50)
+        {
+            int n = Math.Min(50, bits - i);
+            Real chunk = Real.FromDouble(rng.NextInt64(1L << (n - 1), 1L << n), 64);
+            m = Real.Add(m.ShiftLeft(n), chunk, P);
+        }
+        return QuadDouble.ScaleB((QuadDouble)m, e - (bits - 1));
+    }
+
+    [Fact]
+    public void DivideStress()
+    {
+        var rng = new Random(2024);
+        double wRandom = -1000, wPow2 = -1000, wNearOne = -1000, wShort = -1000, wExtreme = -1000, wExact = -1000;
+        for (int i = 0; i < 3000; i++)
+        {
+            // Random operands across a wide exponent range.
+            // (Quotients stay above 2^-800, inside the documented full-precision range.)
+            QuadDouble a = RandomQd(rng, -400, 400), b = RandomQd(rng, -400, 400);
+            wRandom = Math.Max(wRandom, ErrBits(a / b, Real.Divide(a, b, P)));
+
+            // Divisors at or next to a power of two (the leading component may be 2^k exactly).
+            int k = rng.Next(-300, 300);
+            QuadDouble p2 = QuadDouble.ScaleB(QuadDouble.One, k);
+            QuadDouble tiny = QuadDouble.ScaleB(RandomQd(rng, 0, 0), k - rng.Next(1, 215));
+            QuadDouble bp = (i % 3) switch { 0 => p2, 1 => p2 + tiny, _ => p2 - tiny };
+            wPow2 = Math.Max(wPow2, ErrBits(a / bp, Real.Divide(a, bp, P)));
+            wPow2 = Math.Max(wPow2, ErrBits(bp / a, Real.Divide(bp, a, P)));
+
+            // Quotients close to one: b = a (1 + δ) with δ at a random depth (also δ = 0).
+            QuadDouble near = i % 50 == 0 ? a : a + a * QuadDouble.ScaleB(RandomQd(rng, 0, 0), -rng.Next(1, 230));
+            wNearOne = Math.Max(wNearOne, ErrBits(a / near, Real.Divide(a, near, P)));
+            wNearOne = Math.Max(wNearOne, ErrBits(near / a, Real.Divide(near, a, P)));
+
+            // Operands with short significands (zero lower components).
+            QuadDouble sa = ShortQd(rng, rng.Next(1, 160), rng.Next(-50, 50));
+            QuadDouble sb = ShortQd(rng, rng.Next(1, 160), rng.Next(-50, 50));
+            wShort = Math.Max(wShort, ErrBits(sa / sb, Real.Divide(sa, sb, P)));
+            wShort = Math.Max(wShort, ErrBits(a / sb, Real.Divide(a, sb, P)));
+            wShort = Math.Max(wShort, ErrBits(sa / b, Real.Divide(sa, b, P)));
+
+            // Very large and very small magnitudes with an in-range quotient.
+            QuadDouble big = RandomQd(rng, 700, 1000), small = RandomQd(rng, -780, -700);
+            QuadDouble mid = RandomQd(rng, -20, 20), hb = RandomQd(rng, 600, 700);
+            wExtreme = Math.Max(wExtreme, ErrBits(big / mid, Real.Divide(big, mid, P)));
+            wExtreme = Math.Max(wExtreme, ErrBits(small / mid, Real.Divide(small, mid, P)));
+            wExtreme = Math.Max(wExtreme, ErrBits(mid / small, Real.Divide(mid, small, P)));
+            wExtreme = Math.Max(wExtreme, ErrBits(big / hb, Real.Divide(big, hb, P)));
+            wExtreme = Math.Max(wExtreme, ErrBits(hb / big, Real.Divide(hb, big, P)));
+
+            // Exact quotients: (c·m) / m with a short c must give c exactly.
+            QuadDouble c = ShortQd(rng, rng.Next(1, 50), rng.Next(-30, 30));
+            QuadDouble m = ShortQd(rng, rng.Next(1, 100), rng.Next(-30, 30));
+            QuadDouble cm = c * m; // exact: at most 150 significant bits
+            Assert.True(R(cm) == Real.Multiply(c, m, P));
+            QuadDouble qq = cm / m;
+            wExact = Math.Max(wExact, ErrBits(qq, c));
+        }
+        Check("div random", wRandom, -208);
+        Check("div near 2^k", wPow2, -208);
+        Check("div quotient near 1", wNearOne, -208);
+        Check("div short operands", wShort, -208);
+        Check("div extreme magnitudes", wExtreme, -208);
+        Check("div exact quotients", wExact, -208);
+
+        // Special values.
+        QuadDouble one = 1, two = 2, inf = QuadDouble.PositiveInfinity;
+        Assert.Equal(new QuadDouble(0.5), one / two);
+        Assert.Equal(new QuadDouble(3), new QuadDouble(6) / two);
+        Assert.True(QuadDouble.IsNaN(inf / inf));
+        Assert.True(QuadDouble.IsNaN(QuadDouble.NaN / one));
+        Assert.True(QuadDouble.IsNaN(one / QuadDouble.NaN));
+        Assert.True(QuadDouble.IsPositiveInfinity(inf / two));
+        Assert.True(QuadDouble.IsNegativeInfinity(inf / -two));
+        Assert.True(QuadDouble.IsNegative(-one / inf));
+        Assert.Equal(QuadDouble.Zero, QuadDouble.Zero / two);
+        Assert.True(QuadDouble.IsNegative(QuadDouble.NegativeZero / two));
+        Assert.True(QuadDouble.IsNegative(QuadDouble.Zero / -two));
+        Assert.True(QuadDouble.IsPositiveInfinity(QuadDouble.MaxValue / 0.5));
+        Assert.Equal(0.0, (QuadDouble.MaxValue / 0.5).X1);
+        Assert.True(QuadDouble.IsFinite(QuadDouble.MaxValue / 2));
+        Assert.True(R(QuadDouble.MaxValue / 1) == R(QuadDouble.MaxValue));
+    }
+
+    [Fact]
+    public void SqrtStress()
+    {
+        var rng = new Random(4096);
+        double wRandom = -1000, wSquares = -1000, wNear = -1000, wShort = -1000;
+        for (int i = 0; i < 3000; i++)
+        {
+            // Random operands over the whole exponent range, odd and even exponents.
+            QuadDouble a = RandomQd(rng, -1020, 1020, allowNegative: false);
+            wRandom = Math.Max(wRandom, ErrBits(QuadDouble.Sqrt(a), Real.Sqrt(a, P)));
+            QuadDouble a1 = RandomQd(rng, -3, 3, allowNegative: false);
+            wRandom = Math.Max(wRandom, ErrBits(QuadDouble.Sqrt(a1), Real.Sqrt(a1, P)));
+
+            // Perfect squares n² (n with up to 106 bits, so n² is exact in QD): the root is n.
+            QuadDouble n = ShortQd(rng, rng.Next(1, 107), rng.Next(-400, 400));
+            Real n2 = Real.Multiply(n, n, P);
+            QuadDouble sq = (QuadDouble)n2;
+            Assert.True(R(sq) == n2);
+            wSquares = Math.Max(wSquares, ErrBits(QuadDouble.Sqrt(sq), n));
+
+            // Arguments next to powers of four and of two (the root's leading component is near 2^k).
+            int k = rng.Next(-500, 500);
+            QuadDouble p = QuadDouble.ScaleB(QuadDouble.One, k);
+            QuadDouble d = QuadDouble.ScaleB(RandomQd(rng, 0, 0, allowNegative: false), k - rng.Next(1, 215));
+            QuadDouble x = (i % 3) switch { 0 => p + d, 1 => p - d, _ => p };
+            wNear = Math.Max(wNear, ErrBits(QuadDouble.Sqrt(x), Real.Sqrt(x, P)));
+
+            // Short significands.
+            QuadDouble s = ShortQd(rng, rng.Next(1, 212), rng.Next(-900, 900));
+            wShort = Math.Max(wShort, ErrBits(QuadDouble.Sqrt(s), Real.Sqrt(s, P)));
+        }
+        Check("sqrt random", wRandom, -208);
+        Check("sqrt perfect squares", wSquares, -208);
+        Check("sqrt near 2^k", wNear, -208);
+        Check("sqrt short operands", wShort, -208);
+
+        for (int v = 1; v < 3000; v++)
+        {
+            Assert.Equal(new QuadDouble(v), QuadDouble.Sqrt(new QuadDouble((double)v * v)));
+        }
+        Assert.Equal(new QuadDouble(Math.ScaleB(1, -537)), QuadDouble.Sqrt(QuadDouble.Epsilon));
+        Assert.Equal(new QuadDouble(Math.ScaleB(1, 511)), QuadDouble.Sqrt(new QuadDouble(Math.ScaleB(1, 1022))));
+        Assert.True(ErrBits(QuadDouble.Sqrt(QuadDouble.MaxValue), Real.Sqrt(QuadDouble.MaxValue, P)) <= -208);
+        Assert.True(ErrBits(QuadDouble.Sqrt(double.MaxValue), Real.Sqrt(Real.FromDouble(double.MaxValue, 64), P)) <= -208);
+        Assert.True(QuadDouble.IsNaN(QuadDouble.Sqrt(QuadDouble.NaN)));
+        Assert.True(QuadDouble.IsNaN(QuadDouble.Sqrt(QuadDouble.NegativeInfinity)));
+        Assert.True(QuadDouble.IsNaN(QuadDouble.Sqrt(-QuadDouble.Epsilon)));
+        Assert.True(QuadDouble.IsPositiveInfinity(QuadDouble.Sqrt(QuadDouble.PositiveInfinity)));
+        Assert.Equal(0.0, QuadDouble.Sqrt(QuadDouble.PositiveInfinity).X1);
+    }
+
+    [Fact]
+    public void AddStress()
+    {
+        var rng = new Random(77);
+        double wSame = -1000, wMixed = -1000, wShort = -1000;
+        for (int i = 0; i < 4000; i++)
+        {
+            // Same sign, any exponent gap (including gaps beyond 212 bits).
+            QuadDouble a = RandomQd(rng, -100, 100, allowNegative: false);
+            QuadDouble b = QuadDouble.ScaleB(RandomQd(rng, 0, 0, allowNegative: false), QuadDouble.ILogB(a) - rng.Next(-260, 260));
+            if (i % 2 == 0)
+            {
+                (a, b) = (-a, -b);
+            }
+            wSame = Math.Max(wSame, ErrBits(a + b, Real.Add(a, b, P)));
+
+            // Opposite signs with partial cancellation at the leading components.
+            QuadDouble c = -QuadDouble.ScaleB(a, rng.Next(-2, 3)) + QuadDouble.ScaleB(RandomQd(rng, 0, 0), QuadDouble.ILogB(a) - rng.Next(0, 230));
+            Real ec = Real.Add(a, c, P);
+            if (!ec.IsZero)
+            {
+                wMixed = Math.Max(wMixed, ErrBits(a + c, ec));
+            }
+
+            // Short significands: zero lower components on one or both sides.
+            QuadDouble s = ShortQd(rng, rng.Next(1, 212), rng.Next(-120, 120));
+            QuadDouble t = rng.Next(2) == 0 ? -s : s;
+            QuadDouble u = ShortQd(rng, rng.Next(1, 212), rng.Next(-120, 120));
+            Real es = Real.Add(t, u, P);
+            if (!es.IsZero)
+            {
+                wShort = Math.Max(wShort, ErrBits(t + u, es));
+            }
+            Real ea = Real.Add(a, u, P);
+            if (!ea.IsZero)
+            {
+                wShort = Math.Max(wShort, ErrBits(a + u, ea));
+            }
+        }
+        Check("add same sign", wSame, -208);
+        Check("add mixed signs", wMixed, -208);
+        Check("add short operands", wShort, -208);
+        Assert.Equal(QuadDouble.Zero, QuadDouble.Pi + -QuadDouble.Pi);
+        Assert.True(QuadDouble.IsNegative(QuadDouble.NegativeZero + QuadDouble.NegativeZero));
+        Assert.True(QuadDouble.IsPositiveInfinity(QuadDouble.MaxValue + QuadDouble.MaxValue));
+        Assert.Equal(0.0, (QuadDouble.MaxValue + QuadDouble.MaxValue).X1);
+        Assert.True(QuadDouble.IsNegativeInfinity(QuadDouble.MinValue + QuadDouble.MinValue));
+        Assert.True(QuadDouble.IsNaN(QuadDouble.PositiveInfinity + QuadDouble.NegativeInfinity));
+        Assert.Equal(QuadDouble.MaxValue, QuadDouble.MaxValue + QuadDouble.Zero);
+    }
+
     [Fact]
     public void NearOverflowAndUnderflow()
     {

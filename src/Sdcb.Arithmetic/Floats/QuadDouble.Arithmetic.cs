@@ -37,10 +37,18 @@ public readonly partial struct QuadDouble
     }
 
     /// <summary>
-    /// Accurate ("IEEE") addition from the QD library: merges the eight components by decreasing
-    /// magnitude into a double-length accumulator, so the result has a small relative error even
-    /// under massive cancellation.
+    /// Accurate addition. Operands of the same sign cannot cancel, so they take QD's sloppy
+    /// addition (component-wise TwoSums and one renormalization), whose error bound relative to
+    /// |a| + |b| is then also relative to the result. Operands of opposite signs take QD's
+    /// accurate ("IEEE") addition, which merges the eight components by decreasing magnitude into a
+    /// double-length accumulator, so the result has a small relative error even under massive
+    /// cancellation.
     /// </summary>
+    /// <remarks>
+    /// Not inlined on purpose: the body is large, and inlining it into a caller exhausts the JIT's
+    /// inlining budget so that the error-free transforms inside become calls.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
     public static QuadDouble Add(QuadDouble a, QuadDouble b)
     {
         double naive = a._x0 + b._x0;
@@ -56,7 +64,17 @@ public readonly partial struct QuadDouble
         {
             return b;
         }
+        if ((BitConverter.DoubleToInt64Bits(a._x0) ^ BitConverter.DoubleToInt64Bits(b._x0)) >= 0)
+        {
+            return AddSloppy(a, b);
+        }
+        return AddMerge(a, b, naive);
+    }
 
+    /// <summary>QD's ieee_add for finite nonzero operands of opposite signs (see <see cref="Add(QuadDouble, QuadDouble)"/>).</summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static QuadDouble AddMerge(QuadDouble a, QuadDouble b, double naive)
+    {
         ref double pa = ref Unsafe.AsRef(in a._x0);
         ref double pb = ref Unsafe.AsRef(in b._x0);
         int i = 0, j = 0, k = 0;
@@ -361,27 +379,70 @@ public readonly partial struct QuadDouble
     // ---------------------------------------------------------------
 
     /// <summary>
-    /// Long division (QD's accurate_div): five quotient digits q_k = r_0 / b_0 with the remainder
-    /// r ← r - b·q_k updated in QD arithmetic, then renormalized.
+    /// Long division with five quotient digits q_k = r_0 / b_0 (as in QD's accurate_div), but the
+    /// remainder r ← r - b·q_k is updated with error-free transforms only to the precision the later
+    /// digits need (shrinking by one double per digit) and never renormalized; a single
+    /// renormalization of the digits gives the result.
     /// </summary>
     public static QuadDouble Divide(QuadDouble a, QuadDouble b)
     {
-        double q0 = a._x0 / b._x0;
-        if (q0 == 0 || !double.IsFinite(q0) || !double.IsFinite(b._x0))
+        double a0 = a._x0, b0 = b._x0;
+        double q0 = a0 / b0;
+        if (q0 == 0 || !double.IsFinite(q0) || !double.IsFinite(b0))
         {
             return Single(q0);
         }
-        double inv = 1.0 / b._x0;
-        QuadDouble r = AddSloppy(a, -Multiply(b, q0));
-        double q1 = r._x0 * inv;
-        r = AddSloppy(r, -Multiply(b, q1));
-        double q2 = r._x0 * inv;
-        r = AddSloppy(r, -Multiply(b, q2));
-        double q3 = r._x0 * inv;
-        // The fifth digit only needs a few correct bits: estimate the leading component of r - b·q3
-        // from r0 - b0·q3 (exact by Sterbenz) plus the next-order terms.
-        double p = TwoProd(b._x0, q3, out double e);
-        double q4 = (((r._x0 - p) - e) + (r._x1 - b._x1 * q3)) * inv;
+        double a1 = a._x1, a2 = a._x2, a3 = a._x3;
+        double b1 = b._x1, b2 = b._x2, b3 = b._x3;
+
+        // Each remainder is kept as an unnormalized expansion with one term per order of ε = 2^-53
+        // relative to |a|: terms down to order ε³ are formed exactly (TwoProd/TwoSum), order-ε⁴
+        // terms in plain arithmetic. Every digit q is the correctly rounded quotient of the leading
+        // remainder term by b0, so the remainder's leading term minus b0·q is exact (one FMA).
+
+        // r = a - b·q0 = x + y + z + zz (orders ε, ε², ε³, ε⁴).
+        double t = Math.FusedMultiplyAdd(-b0, q0, a0);
+        double p1 = TwoProd(b1, q0, out double e1);
+        double p2 = TwoProd(b2, q0, out double e2);
+        double p3 = TwoProd(b3, q0, out double e3);
+        double x = TwoSum(t, a1, out double f1);
+        x = TwoSum(x, -p1, out double f2);
+        double y = TwoSum(a2, -p2, out double g1);
+        double w = TwoSum(f1, f2, out double g2);
+        y = TwoSum(y, -e1, out double g3);
+        y = TwoSum(y, w, out double g4);
+        double z = TwoSum(a3, -p3, out double h1);
+        double v = TwoSum(g1, g2, out double h2);
+        z = TwoSum(z, -e2, out double h3);
+        double v2 = TwoSum(g3, g4, out double h4);
+        v = TwoSum(v, v2, out double h5);
+        z = TwoSum(z, v, out double h6);
+        double zz = ((h1 + h2) + (h3 + h4)) + ((h5 + h6) - e3);
+
+        // r ← r - b·q1 = y + z + zz (orders ε², ε³, ε⁴).
+        double q1 = x / b0;
+        t = Math.FusedMultiplyAdd(-b0, q1, x);
+        p1 = TwoProd(b1, q1, out e1);
+        p2 = TwoProd(b2, q1, out e2);
+        y = TwoSum(t, y, out f1);
+        y = TwoSum(y, -p1, out f2);
+        z = TwoSum(z, -p2, out g1);
+        w = TwoSum(f1, f2, out g2);
+        z = TwoSum(z, -e1, out g3);
+        z = TwoSum(z, w, out g4);
+        zz = (zz - Math.FusedMultiplyAdd(b3, q1, e2)) + ((g1 + g2) + (g3 + g4));
+
+        // r ← r - b·q2 = z + zz (orders ε³, ε⁴).
+        double q2 = y / b0;
+        t = Math.FusedMultiplyAdd(-b0, q2, y);
+        p1 = TwoProd(b1, q2, out e1);
+        z = TwoSum(t, z, out f1);
+        z = TwoSum(z, -p1, out f2);
+        zz = (zz - Math.FusedMultiplyAdd(b2, q2, e1)) + (f1 + f2);
+
+        // Last two digits: r - b·q3 is only needed to a few bits.
+        double q3 = z / b0;
+        double q4 = (Math.FusedMultiplyAdd(-b0, q3, z) + Math.FusedMultiplyAdd(-b1, q3, zz)) / b0;
 
         Renorm(ref q0, ref q1, ref q2, ref q3, q4);
         return Make(q0, q1, q2, q3);
@@ -510,8 +571,8 @@ public readonly partial struct QuadDouble
     // ---------------------------------------------------------------
 
     /// <summary>
-    /// √a: a double-double estimate (one Newton step from <see cref="Math.Sqrt"/>) refined by one
-    /// Newton step whose residual a - y² is formed in QD arithmetic. -0 gives -0, negative values NaN.
+    /// √a by a digit-by-digit recurrence: five digits, the first from <see cref="Math.Sqrt"/>, each
+    /// next one the remainder a - Y² divided by twice the first digit. -0 gives -0, negative values NaN.
     /// </summary>
     public static QuadDouble Sqrt(QuadDouble a)
     {
@@ -530,26 +591,44 @@ public readonly partial struct QuadDouble
             a0 = a._x0;
         }
 
-        double s = Math.Sqrt(a0);
-        double e = Math.FusedMultiplyAdd(-s, s, a0);
-        double inv2s = 0.5 / s;
-        double t = (e + a._x1) * inv2s;
-        double yh = FastTwoSum(s, t, out double yl);
+        // Digit-by-digit square root: with Y = d0 + ... + dk and r = a - Y², the next digit is
+        // d = r0 / (2·d0) and r ← r - d·(2Y + d). As in Divide, the remainder is an unnormalized
+        // expansion with one term per order of ε = 2^-53 relative to |a| (exact down to order ε³,
+        // plain at order ε⁴), and each digit is a correctly rounded quotient so that the leading
+        // term minus 2·d0·d is exact.
+        double d0 = Math.Sqrt(a0);
+        double s2 = 2.0 * d0;
 
-        QuadDouble y2 = Square(new QuadDouble(yh, yl, 0, 0, Tag.Raw));
-        QuadDouble r = Subtract(a, y2);
+        // r = a - d0² = x + y + z + zz (a0 - d0² is exact for the correctly rounded root).
+        double x = TwoSum(Math.FusedMultiplyAdd(-d0, d0, a0), a._x1, out double f1);
+        double y = TwoSum(f1, a._x2, out double g1);
+        double z = TwoSum(g1, a._x3, out double zz);
 
-        // c = r / (2 y) in double-double precision.
-        double d0 = 2.0 * yh, d1 = 2.0 * yl;
-        double ch = r._x0 / d0;
-        double ph = TwoProd(ch, d0, out double pe);
-        double rem = ((r._x0 - ph) - pe) + r._x1 - ch * d1;
-        double cl = rem / d0;
+        // r ← r - d1·(2·d0 + d1) = y + z + zz.
+        double d1 = x / s2;
+        double t = Math.FusedMultiplyAdd(-s2, d1, x);
+        double p = TwoSquare(d1, out double e);
+        y = TwoSum(t, y, out f1);
+        y = TwoSum(y, -p, out double f2);
+        z = TwoSum(z, -e, out g1);
+        double w = TwoSum(f1, f2, out double g2);
+        z = TwoSum(z, w, out double g3);
+        zz += (g1 + g2) + g3;
 
-        QuadDouble y = new(yh, yl, 0, 0, Tag.Raw);
-        // √a = y + δ - δ²/(2y) + O(δ³) with δ = r/(2y) = ch + cl.
-        double c2 = -ch * ch * (0.5 / yh);
-        y = Add(Add(Add(y, ch), cl), c2);
-        return scale == 0 ? y : ScaleB(y, scale);
+        // r ← r - d2·(2·d0 + 2·d1 + d2) = z + zz.
+        double d2 = y / s2;
+        t = Math.FusedMultiplyAdd(-s2, d2, y);
+        p = TwoProd(2.0 * d1, d2, out e);
+        z = TwoSum(t, z, out f1);
+        z = TwoSum(z, -p, out f2);
+        zz = (zz - Math.FusedMultiplyAdd(d2, d2, e)) + (f1 + f2);
+
+        // Last two digits: r - d3·(2·d0 + 2·d1) is only needed to a few bits.
+        double d3 = z / s2;
+        double d4 = (Math.FusedMultiplyAdd(-s2, d3, z) + Math.FusedMultiplyAdd(-2.0 * d1, d3, zz)) / s2;
+
+        Renorm(ref d0, ref d1, ref d2, ref d3, d4);
+        QuadDouble root = new(d0, d1, d2, d3, Tag.Raw);
+        return scale == 0 ? root : ScaleB(root, scale);
     }
 }

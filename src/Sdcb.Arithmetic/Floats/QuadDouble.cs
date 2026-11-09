@@ -13,11 +13,13 @@ namespace Sdcb.Arithmetic;
 /// <para>
 /// The algorithms follow the QD library of Hida, Li and Bailey (<c>qd_real</c>). Results are fast
 /// approximations, <b>not</b> correctly rounded: addition and subtraction use QD's accurate
-/// ("IEEE") addition, so cancellation is handled well; multiplication uses QD's accurate
-/// multiplication; division is long division with five quotient digits; the square root refines a
-/// double-double estimate with one Newton step whose residual is formed in QD arithmetic.
-/// Measured worst relative errors on random operands (the tests compare against <see cref="Real"/> at
-/// 500 bits): about 2^-214 for +, -, ×, ÷, about 2^-210.5 for √, and between 2^-208.5 and 2^-215 for
+/// ("IEEE") addition when the operands' signs differ, so cancellation is handled well, and QD's
+/// sloppy addition when they agree (no cancellation is possible then); multiplication uses QD's
+/// accurate multiplication; division is long division with five quotient digits, and the square
+/// root the analogous digit-by-digit recurrence, both with remainders updated by error-free
+/// transforms. Measured worst relative errors on random operands (the tests compare against
+/// <see cref="Real"/> at 500 bits): about 2^-213 for + and -, about 2^-214 for ×, about 2^-215 for ÷
+/// and √, and between 2^-208.5 and 2^-215 for
 /// the transcendental functions in normal ranges (Pow's error grows like |y·ln x|·2^-212).
 /// </para>
 /// <para>
