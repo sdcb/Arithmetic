@@ -26,8 +26,13 @@ functions are native and several times faster than `Real` or MPFR at the same pr
   round-and-pack), structured after Berkeley SoftFloat's f128.
 - `ToString()` prints the shortest string that round-trips; `Parse` is correctly rounded from
   the exact decimal value.
-- Transcendental functions (34, each with a `RealRounding` overload) are correctly rounded:
-  they are evaluated through `Real` and rounded once, so they cost about as much as `Real`.
+- Transcendental functions (34, each with a `RealRounding` overload) are correctly rounded.
+  Exp, Exp2, Log, Log2, Log10, Pow, Sin, Cos, Tan, Asin, Acos, Atan, Atan2, Sinh, Cosh and Tanh
+  first evaluate a triple-double (~159-bit) kernel with a proven error bound and round directly
+  when the error interval cannot straddle a rounding boundary (Ziv's strategy). Otherwise —
+  exact results, midpoints, subnormal or near-overflow results, trig arguments ≥ 2^30, about
+  0.02–0.04% of random trig inputs — and for the remaining functions, they are evaluated through
+  `Real` and rounded once.
 - NaN payloads are not preserved: arithmetic returns the canonical quiet NaN.
 - Verified bit for bit against `Real` (round-to-odd oracle, so no double rounding) on ~180,000
   random add/sub/mul/div/sqrt/FMA cases across all five rounding modes, biased toward
@@ -36,7 +41,8 @@ functions are native and several times faster than `Real` or MPFR at the same pr
 ## DoubleDouble and QuadDouble
 
 Algorithms from Hida, Li and Bailey's QD library: accurate ("IEEE") addition, FMA-based
-multiplication, Newton-corrected division and square root. Exp, log, trig and hyperbolic
+multiplication, division and square root (`QuadDouble` uses digit-by-digit division and square
+root with an error-free remainder expansion and a single final renormalization). Exp, log, trig and hyperbolic
 functions are native (argument reduction + tables + series); arguments that need very precise
 reduction (huge trig arguments, `%`, `Round(x, digits)`) fall back to `Real` for correctness.
 
@@ -45,7 +51,7 @@ Worst relative error measured against `Real` at 300/500 bits on seeded random in
 | | `DoubleDouble` | `QuadDouble` |
 |---|---|---|
 | add / sub / mul | 2^-104.5 | 2^-214 |
-| div / sqrt | 2^-103.8 / 2^-104.8 | 2^-214 / 2^-210.6 |
+| div / sqrt | 2^-103.8 / 2^-104.8 | 2^-215 / 2^-215 |
 | exp / log families | 2^-104.3 or better | 2^-211.4 or better |
 | trig / inverse trig / hyperbolic | 2^-103.4 or better | 2^-210.4 or better |
 | pow | 2^-101.2 (\|y·log x\| ≤ 16) | 2^-209.7 |

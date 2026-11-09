@@ -71,6 +71,9 @@ Full tables and methodology: [docs/performance.md](https://github.com/sdcb/Arith
 `Real` against native MPFR 4.2 (53–16384 bits, both sides correctly rounded):
 add/mul 1.3–2.5×, div/sqrt 1.3–3.3×, exp/sin/atan 0.9–1.8×, log/pow 1.6–2.7×.
 
+`Float128` (correctly rounded) against MPFR at 113 bits: add/mul/div/sqrt 2–4× faster (5–13 ns),
+exp/log/sin/atan/pow 6–12× faster (150–370 ns). `DoubleDouble`: 1.3–9 ns basic operations, ~110–155 ns exp/log/sin.
+
 Every `BigInt` operation is cross-checked against `BigInteger` and native GMP, and every
 `Real` function bit-for-bit against MPFR in all rounding modes.
 

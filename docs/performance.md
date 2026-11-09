@@ -78,26 +78,30 @@ internal constant cache while the MPFR side frees its cache on every call.
 ## Fixed-width floats
 
 BenchmarkDotNet ShortRun (mean, ns), same machine. `Real` and MPFR run at the type's
-precision (113 / 106 / 212 bits). Every `Float128`, `DoubleDouble` and `QuadDouble`
-arithmetic operation allocates nothing; `Real` allocates 40–56 B per basic operation.
+precision (113 / 106 / 212 bits). `Float128`, `DoubleDouble` and `QuadDouble` allocate nothing
+(including `Float128`'s fast-path transcendentals); `Real` allocates 40–56 B per basic operation.
 
 | operation | `Float128` | `Real` 113 | MPFR 113 | `DoubleDouble` | `Real` 106 | MPFR 106 | `QuadDouble` | `Real` 212 | MPFR 212 |
 |---|---|---|---|---|---|---|---|---|---|
-| add | 17 | 49 | 18 | 1.7 | 47 | 13 | 41 | 68 | 24 |
-| mul | 31 | 50 | 36 | 1.7 | 51 | 37 | 44 | 72 | 62 |
-| div | 60 | 78 | 29 | 4.9 | 81 | 30 | 193 | 120 | 78 |
-| sqrt | 23 | 127 | 26 | 8.9 | 173 | 43 | 191 | 215 | 98 |
-| fma | 53 | 87 | — | — | — | — | — | — | — |
-| exp | 1,690 | 1,301 | 1,037 | 110 | 1,058 | 1,001 | 1,022 | 1,964 | 1,543 |
-| log | — | — | — | 157 | 3,507 | 2,019 | 1,217 | 5,005 | 2,974 |
-| sin | 1,876 | 2,064 | 1,251 | 138 | 2,777 | 2,090 | 1,252 | 2,510 | 1,838 |
-| ToString / Parse | 353 / 372 | 312 / 317 | — | | | | | | |
+| add | 4.8 | 47 | 18 | 1.8 | 45 | 13 | 17 | 47 | 17 |
+| sub (cancelling) | 5.7 | — | 13 | — | — | — | 29 | — | 19 |
+| mul | 6.2 | 39 | 21 | 1.3 | 37 | 21 | 35 | 57 | 36 |
+| div | 13 | 80 | 28 | 4.8 | 79 | 29 | 31 | 99 | 68 |
+| sqrt | 13 | 123 | 28 | 8.7 | 126 | 29 | 35 | 199 | 95 |
+| fma | 20 | 80 | — | — | — | — | — | — | — |
+| exp | 154 | 1,191 | 1,011 | 109 | 1,041 | 959 | 954 | 1,763 | 1,575 |
+| log | 174 | — | 1,931 | 155 | 2,694 | 1,909 | 1,170 | 5,175 | 4,136 |
+| sin | 198 | 1,678 | 1,176 | 115 | 1,670 | 1,157 | 1,213 | 2,443 | 1,738 |
+| atan / pow | 299 / 369 | — | 3,622 / 3,328 | | | | | | |
+| ToString / Parse | 356 / 356 | 282 / 282 | — | | | | | | |
 
-- `Float128` basic arithmetic is at MPFR's level except division (2×); its transcendental
-  functions go through `Real` to stay correctly rounded, so they cost the same as `Real`.
-- `DoubleDouble` basic arithmetic is 5–22× faster than MPFR at 106 bits; exp/log/sin are 9–15× faster.
-- `QuadDouble` mul/exp/log/sin beat MPFR at 212 bits by 1.4–2.4×; add is 1.7× slower (accurate
-  QD addition with renormalization), and div/sqrt (QD-library long division, Newton iteration) ~2× slower.
+- `Float128` basic arithmetic is 2–4× faster than MPFR at 113 bits, every result correctly rounded.
+  Its transcendentals use a triple-double fast path (exp 154, log 174, sin/cos ~200, atan 299,
+  pow 369 ns) and are 6–12× faster than MPFR while still correctly rounded; hard cases
+  (≪ 0.1% of random inputs) fall back to `Real`.
+- `DoubleDouble` basic arithmetic is 3–16× faster than MPFR at 106 bits; exp/log/sin are 9–12× faster.
+- `QuadDouble` matches MPFR at 212 bits on add/mul, is 2–3× faster on div/sqrt and 1.4–3.5× faster
+  on exp/log/sin; cancelling subtraction (exact merge) is 1.5× slower.
 
 ## Running the benchmarks
 
