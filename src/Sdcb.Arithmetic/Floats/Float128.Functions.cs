@@ -8,7 +8,13 @@ namespace Sdcb.Arithmetic;
 // which case the same function is evaluated away from zero and the two results are compared
 // (equal means exact). Arguments whose results overflow or underflow far beyond the binary128
 // range are answered directly so Real never builds astronomically large exponents, and so are
-// arguments below 2^-200 for functions whose result there is x(1 ± tiny) or 1 ± tiny.
+// arguments below 2^-200 for functions whose result there is x(1 ± tiny) or 1 ± tiny (below 2^-116 or
+// 2^-60 for the functions whose correction term is that small, see IsTinyArg).
+//
+// Exp, Exp2, Log, Log2, Log10, Pow, Sin, Cos, Tan, Asin, Acos, Atan, Atan2, Sinh, Cosh and Tanh first try
+// a triple-double fast path (Float128.FastPath*.cs) that returns only results it can prove correctly
+// rounded; everything else (about 0.03% of typical arguments, exact results in directed modes, special
+// values, subnormal or overflowing results, huge trig arguments) continues here.
 public readonly partial struct Float128
 {
     private const int WorkPrecision = 128;
@@ -52,11 +58,14 @@ public readonly partial struct Float128
     private static Float128 OneMinusTiny(bool negative, RealRounding rounding) =>
         RoundWide(negative, UInt128.MaxValue, -128, sticky: true, rounding);
 
-    /// <summary>1 ± δ (δ far below 2^-127), rounded per mode.</summary>
+    /// <summary>1 ± δ for 0 &lt; δ &lt; 2^-114 (every such δ rounds alike: the nearest boundaries are 1 + 2^-113 and 1 - 2^-114), rounded per mode.</summary>
     private static Float128 NearOne(bool above, RealRounding rounding) =>
         RoundWide(false, above ? UInt128.One << 127 : (UInt128.One << 127) - 1, -127, sticky: true, rounding);
 
-    /// <summary>x·(1 ± δ) for a tiny relative δ (far below 2^-123), rounded per mode; up = larger magnitude.</summary>
+    /// <summary>
+    /// x·(1 ± δ) for a relative 0 &lt; δ &lt; 2^-116 (no rounding boundary lies that close to a binary128 x, the nearest
+    /// being the midpoint 2^-115·|x| below a power of two), rounded per mode; up = larger magnitude.
+    /// </summary>
     private static Float128 NearX(Float128 x, bool up, RealRounding rounding)
     {
         int exp = x.BiasedExponent;
@@ -73,7 +82,14 @@ public readonly partial struct Float128
     /// |x| &lt; 2^-200 (nonzero, finite): f(x) = x(1 + O(x²)) or 1 + O(x), so the result is decided by the
     /// sign of the first correction term without evaluating f (Real's Ziv loop is slow for such inputs).
     /// </summary>
-    private static bool IsTinyArg(Float128 x) => IsFinite(x) && !IsZero(x) && x.BiasedExponent < ExponentBias - 200;
+    private static bool IsTinyArg(Float128 x) => IsTinyArg(x, -200);
+
+    /// <summary>
+    /// |x| &lt; 2^maxExp (nonzero, finite). The callers use -116 for f = 1 + c·x (|c| ≤ ln 10, so δ &lt; 2^-114.8)
+    /// and x(1 + x/2), and -60 for f = x(1 + c·x²) or 1 + c·x² with |c| ≤ 1/2 (δ &lt; 2^-121), all inside the
+    /// ranges where <see cref="NearOne"/> and <see cref="NearX"/> round exactly like f.
+    /// </summary>
+    private static bool IsTinyArg(Float128 x, int maxExp) => IsFinite(x) && !IsZero(x) && x.BiasedExponent < ExponentBias + maxExp;
 
     // ---------------------------------------------------------------
     // Exponentials
@@ -85,7 +101,7 @@ public readonly partial struct Float128
     /// <summary>e^x, correctly rounded.</summary>
     public static Float128 Exp(Float128 x, RealRounding rounding)
     {
-        if (IsTinyArg(x))
+        if (IsTinyArg(x, -116))
         {
             return NearOne(!x.SignBit, rounding);
         }
@@ -100,7 +116,7 @@ public readonly partial struct Float128
                 return Tiny(false, rounding);
             }
         }
-        return Unary(x, static (r, p, m) => Real.Exp(r, p, m), rounding);
+        return TryExpFast(x, rounding, out Float128 fast) ? fast : Unary(x, static (r, p, m) => Real.Exp(r, p, m), rounding);
     }
 
     /// <summary>2^x, correctly rounded (nearest-even).</summary>
@@ -109,7 +125,7 @@ public readonly partial struct Float128
     /// <summary>2^x, correctly rounded.</summary>
     public static Float128 Exp2(Float128 x, RealRounding rounding)
     {
-        if (IsTinyArg(x))
+        if (IsTinyArg(x, -116))
         {
             return NearOne(!x.SignBit, rounding);
         }
@@ -124,7 +140,7 @@ public readonly partial struct Float128
                 return Tiny(false, rounding);
             }
         }
-        return Unary(x, static (r, p, m) => Real.Exp2(r, p, m), rounding);
+        return TryExp2Fast(x, rounding, out Float128 fast) ? fast : Unary(x, static (r, p, m) => Real.Exp2(r, p, m), rounding);
     }
 
     /// <summary>10^x, correctly rounded (nearest-even).</summary>
@@ -133,7 +149,7 @@ public readonly partial struct Float128
     /// <summary>10^x, correctly rounded.</summary>
     public static Float128 Exp10(Float128 x, RealRounding rounding)
     {
-        if (IsTinyArg(x))
+        if (IsTinyArg(x, -116))
         {
             return NearOne(!x.SignBit, rounding);
         }
@@ -157,7 +173,7 @@ public readonly partial struct Float128
     /// <summary>e^x - 1, correctly rounded.</summary>
     public static Float128 ExpM1(Float128 x, RealRounding rounding)
     {
-        if (IsTinyArg(x))
+        if (IsTinyArg(x, -116))
         {
             return NearX(x, !x.SignBit, rounding);
         }
@@ -223,7 +239,8 @@ public readonly partial struct Float128
     public static Float128 Log(Float128 x) => Log(x, RealRounding.NearestEven);
 
     /// <summary>ln x, correctly rounded.</summary>
-    public static Float128 Log(Float128 x, RealRounding rounding) => Unary(x, static (r, p, m) => Real.Log(r, p, m), rounding);
+    public static Float128 Log(Float128 x, RealRounding rounding) =>
+        TryLogFast(x, rounding, out Float128 fast) ? fast : Unary(x, static (r, p, m) => Real.Log(r, p, m), rounding);
 
     /// <summary>Logarithm of x in base newBase, correctly rounded (nearest-even).</summary>
     public static Float128 Log(Float128 x, Float128 newBase) => Log(x, newBase, RealRounding.NearestEven);
@@ -236,20 +253,22 @@ public readonly partial struct Float128
     public static Float128 Log2(Float128 x) => Log2(x, RealRounding.NearestEven);
 
     /// <summary>log2 x, correctly rounded.</summary>
-    public static Float128 Log2(Float128 x, RealRounding rounding) => Unary(x, static (r, p, m) => Real.Log2(r, p, m), rounding);
+    public static Float128 Log2(Float128 x, RealRounding rounding) =>
+        TryLog2Fast(x, rounding, out Float128 fast) ? fast : Unary(x, static (r, p, m) => Real.Log2(r, p, m), rounding);
 
     /// <summary>log10 x, correctly rounded (nearest-even).</summary>
     public static Float128 Log10(Float128 x) => Log10(x, RealRounding.NearestEven);
 
     /// <summary>log10 x, correctly rounded.</summary>
-    public static Float128 Log10(Float128 x, RealRounding rounding) => Unary(x, static (r, p, m) => Real.Log10(r, p, m), rounding);
+    public static Float128 Log10(Float128 x, RealRounding rounding) =>
+        TryLog10Fast(x, rounding, out Float128 fast) ? fast : Unary(x, static (r, p, m) => Real.Log10(r, p, m), rounding);
 
     /// <summary>ln(1 + x), correctly rounded (nearest-even).</summary>
     public static Float128 LogP1(Float128 x) => LogP1(x, RealRounding.NearestEven);
 
     /// <summary>ln(1 + x), correctly rounded.</summary>
     public static Float128 LogP1(Float128 x, RealRounding rounding) =>
-        IsTinyArg(x) ? NearX(x, x.SignBit, rounding) : Unary(x, static (r, p, m) => Real.LogP1(r, p, m), rounding);
+        IsTinyArg(x, -116) ? NearX(x, x.SignBit, rounding) : Unary(x, static (r, p, m) => Real.LogP1(r, p, m), rounding);
 
     /// <summary>log2(1 + x), correctly rounded (nearest-even).</summary>
     public static Float128 Log2P1(Float128 x) => Log2P1(x, RealRounding.NearestEven);
@@ -283,7 +302,7 @@ public readonly partial struct Float128
                 return est > 0 ? Huge(neg, rounding) : Tiny(neg, rounding);
             }
         }
-        return Binary(x, y, static (s, p, m) => Real.Pow(s.X, s.Y, p, m), rounding);
+        return TryPowFast(x, y, rounding, out Float128 fast) ? fast : Binary(x, y, static (s, p, m) => Real.Pow(s.X, s.Y, p, m), rounding);
     }
 
     /// <summary>A double estimate of log2|x| (finite nonzero x), accurate also for x near ±1.</summary>
@@ -329,21 +348,21 @@ public readonly partial struct Float128
 
     /// <summary>sin x, correctly rounded.</summary>
     public static Float128 Sin(Float128 x, RealRounding rounding) =>
-        IsTinyArg(x) ? NearX(x, false, rounding) : Unary(x, static (r, p, m) => Real.Sin(r, p, m), rounding);
+        IsTinyArg(x, -60) ? NearX(x, false, rounding) : TrySinFast(x, rounding, out Float128 fast) ? fast : Unary(x, static (r, p, m) => Real.Sin(r, p, m), rounding);
 
     /// <summary>cos x, correctly rounded (nearest-even).</summary>
     public static Float128 Cos(Float128 x) => Cos(x, RealRounding.NearestEven);
 
     /// <summary>cos x, correctly rounded.</summary>
     public static Float128 Cos(Float128 x, RealRounding rounding) =>
-        IsTinyArg(x) ? NearOne(false, rounding) : Unary(x, static (r, p, m) => Real.Cos(r, p, m), rounding);
+        IsTinyArg(x, -60) ? NearOne(false, rounding) : TryCosFast(x, rounding, out Float128 fast) ? fast : Unary(x, static (r, p, m) => Real.Cos(r, p, m), rounding);
 
     /// <summary>tan x, correctly rounded (nearest-even).</summary>
     public static Float128 Tan(Float128 x) => Tan(x, RealRounding.NearestEven);
 
     /// <summary>tan x, correctly rounded.</summary>
     public static Float128 Tan(Float128 x, RealRounding rounding) =>
-        IsTinyArg(x) ? NearX(x, true, rounding) : Unary(x, static (r, p, m) => Real.Tan(r, p, m), rounding);
+        IsTinyArg(x, -60) ? NearX(x, true, rounding) : TryTanFast(x, rounding, out Float128 fast) ? fast : Unary(x, static (r, p, m) => Real.Tan(r, p, m), rounding);
 
     /// <summary>(sin x, cos x), each correctly rounded (nearest-even).</summary>
     public static (Float128 Sin, Float128 Cos) SinCos(Float128 x) => (Sin(x), Cos(x));
@@ -353,27 +372,28 @@ public readonly partial struct Float128
 
     /// <summary>asin x, correctly rounded.</summary>
     public static Float128 Asin(Float128 x, RealRounding rounding) =>
-        IsTinyArg(x) ? NearX(x, true, rounding) : Unary(x, static (r, p, m) => Real.Asin(r, p, m), rounding);
+        IsTinyArg(x, -60) ? NearX(x, true, rounding) : TryAsinFast(x, rounding, out Float128 fast) ? fast : Unary(x, static (r, p, m) => Real.Asin(r, p, m), rounding);
 
     /// <summary>acos x, correctly rounded (nearest-even).</summary>
     public static Float128 Acos(Float128 x) => Acos(x, RealRounding.NearestEven);
 
     /// <summary>acos x, correctly rounded.</summary>
-    public static Float128 Acos(Float128 x, RealRounding rounding) => Unary(x, static (r, p, m) => Real.Acos(r, p, m), rounding);
+    public static Float128 Acos(Float128 x, RealRounding rounding) =>
+        TryAcosFast(x, rounding, out Float128 fast) ? fast : Unary(x, static (r, p, m) => Real.Acos(r, p, m), rounding);
 
     /// <summary>atan x, correctly rounded (nearest-even).</summary>
     public static Float128 Atan(Float128 x) => Atan(x, RealRounding.NearestEven);
 
     /// <summary>atan x, correctly rounded.</summary>
     public static Float128 Atan(Float128 x, RealRounding rounding) =>
-        IsTinyArg(x) ? NearX(x, false, rounding) : Unary(x, static (r, p, m) => Real.Atan(r, p, m), rounding);
+        IsTinyArg(x, -60) ? NearX(x, false, rounding) : TryAtanFast(x, rounding, out Float128 fast) ? fast : Unary(x, static (r, p, m) => Real.Atan(r, p, m), rounding);
 
     /// <summary>atan2(y, x), correctly rounded (nearest-even).</summary>
     public static Float128 Atan2(Float128 y, Float128 x) => Atan2(y, x, RealRounding.NearestEven);
 
     /// <summary>atan2(y, x), correctly rounded.</summary>
     public static Float128 Atan2(Float128 y, Float128 x, RealRounding rounding) =>
-        Binary(y, x, static (s, p, m) => Real.Atan2(s.X, s.Y, p, m), rounding);
+        TryAtan2Fast(y, x, rounding, out Float128 fast) ? fast : Binary(y, x, static (s, p, m) => Real.Atan2(s.X, s.Y, p, m), rounding);
 
     /// <summary>sin(πx), correctly rounded (nearest-even).</summary>
     public static Float128 SinPi(Float128 x) => SinPi(x, RealRounding.NearestEven);
@@ -431,7 +451,7 @@ public readonly partial struct Float128
     /// <summary>sinh x, correctly rounded.</summary>
     public static Float128 Sinh(Float128 x, RealRounding rounding)
     {
-        if (IsTinyArg(x))
+        if (IsTinyArg(x, -60))
         {
             return NearX(x, true, rounding);
         }
@@ -439,7 +459,7 @@ public readonly partial struct Float128
         {
             return Huge(x.SignBit, rounding);
         }
-        return Unary(x, static (r, p, m) => Real.Sinh(r, p, m), rounding);
+        return TrySinhFast(x, rounding, out Float128 fast) ? fast : Unary(x, static (r, p, m) => Real.Sinh(r, p, m), rounding);
     }
 
     /// <summary>cosh x, correctly rounded (nearest-even).</summary>
@@ -448,7 +468,7 @@ public readonly partial struct Float128
     /// <summary>cosh x, correctly rounded.</summary>
     public static Float128 Cosh(Float128 x, RealRounding rounding)
     {
-        if (IsTinyArg(x))
+        if (IsTinyArg(x, -60))
         {
             return NearOne(true, rounding);
         }
@@ -456,7 +476,7 @@ public readonly partial struct Float128
         {
             return Huge(false, rounding);
         }
-        return Unary(x, static (r, p, m) => Real.Cosh(r, p, m), rounding);
+        return TryCoshFast(x, rounding, out Float128 fast) ? fast : Unary(x, static (r, p, m) => Real.Cosh(r, p, m), rounding);
     }
 
     /// <summary>tanh x, correctly rounded (nearest-even).</summary>
@@ -465,15 +485,16 @@ public readonly partial struct Float128
     /// <summary>tanh x, correctly rounded.</summary>
     public static Float128 Tanh(Float128 x, RealRounding rounding)
     {
-        if (IsTinyArg(x))
+        if (IsTinyArg(x, -60))
         {
             return NearX(x, false, rounding);
         }
-        if (IsFinite(x) && Abs(x) > (Float128)100)
+        if (IsFinite(x) && Abs(x) >= (Float128)41)
         {
+            // tanh x = 1 - δ with 0 < δ < 2e^-82 < 2^-117: every mode rounds it like 1 - tiny.
             return OneMinusTiny(x.SignBit, rounding);
         }
-        return Unary(x, static (r, p, m) => Real.Tanh(r, p, m), rounding);
+        return TryTanhFast(x, rounding, out Float128 fast) ? fast : Unary(x, static (r, p, m) => Real.Tanh(r, p, m), rounding);
     }
 
     /// <summary>asinh x, correctly rounded (nearest-even).</summary>
@@ -481,7 +502,7 @@ public readonly partial struct Float128
 
     /// <summary>asinh x, correctly rounded.</summary>
     public static Float128 Asinh(Float128 x, RealRounding rounding) =>
-        IsTinyArg(x) ? NearX(x, false, rounding) : Unary(x, static (r, p, m) => Real.Asinh(r, p, m), rounding);
+        IsTinyArg(x, -60) ? NearX(x, false, rounding) : Unary(x, static (r, p, m) => Real.Asinh(r, p, m), rounding);
 
     /// <summary>acosh x, correctly rounded (nearest-even).</summary>
     public static Float128 Acosh(Float128 x) => Acosh(x, RealRounding.NearestEven);
@@ -494,5 +515,5 @@ public readonly partial struct Float128
 
     /// <summary>atanh x, correctly rounded.</summary>
     public static Float128 Atanh(Float128 x, RealRounding rounding) =>
-        IsTinyArg(x) ? NearX(x, true, rounding) : Unary(x, static (r, p, m) => Real.Atanh(r, p, m), rounding);
+        IsTinyArg(x, -60) ? NearX(x, true, rounding) : Unary(x, static (r, p, m) => Real.Atanh(r, p, m), rounding);
 }
