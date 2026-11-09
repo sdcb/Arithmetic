@@ -234,7 +234,10 @@ public readonly partial struct DoubleDouble
         return NaN;
     }
 
-    /// <summary>∛x (one Newton step on the double estimate).</summary>
+    /// <summary>
+    /// ∛x: two Newton steps from <see cref="Math.Cbrt"/>. The seed's accuracy is platform-dependent
+    /// (glibc's cbrt is off by a few ulps), and one quadratic step would only square that error.
+    /// </summary>
     public static DoubleDouble Cbrt(DoubleDouble x)
     {
         double xh = x._hi;
@@ -254,6 +257,10 @@ public readonly partial struct DoubleDouble
         DoubleDouble y2 = new(ErrorFree.TwoSquare(y, out double y2l), y2l, normalized: true);
         DoubleDouble r = x - y2 * y;
         DoubleDouble result = new DoubleDouble(y, 0.0, normalized: true) + r._hi / (3.0 * y2._hi);
+        // Second step at double-double precision: the correction only needs ~53 bits.
+        DoubleDouble sq = Square(result);
+        r = x - sq * result;
+        result += r._hi / (3.0 * sq._hi);
         return k == 0 ? result : ScaleB(result, k);
     }
 
