@@ -45,6 +45,10 @@ public class QuadDoubleBench
     [Benchmark] public void MpfrAdd() => Mpfr.Add(ref _mr, ref _ma, ref _mb, 0);
     [Benchmark] public double DoubleAdd() => _da + _db;
 
+    // Opposite signs: QuadDouble takes the cancellation-safe merge path here.
+    [Benchmark] public QuadDouble QdSub() => _qa - _qb;
+    [Benchmark] public void MpfrSub() => Mpfr.Sub(ref _mr, ref _ma, ref _mb, 0);
+
     [Benchmark] public QuadDouble QdMul() => _qa * _qb;
     [Benchmark] public Real RealMul() => Real.Multiply(_ra, _rb, P);
     [Benchmark] public void MpfrMul() => Mpfr.Mul(ref _mr, ref _ma, ref _mb, 0);
