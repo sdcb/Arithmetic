@@ -56,8 +56,9 @@ Worst relative error measured against `BigFloat` at 300/500 bits on seeded rando
 | trig / inverse trig / hyperbolic | 2^-103.4 or better | 2^-210.4 or better |
 | pow | 2^-101.2 (\|y·log x\| ≤ 16) | 2^-209.7 |
 
-`Pow` is exp(y·log x), so its error grows with \|y·log x\|. `DoubleDouble.FusedMultiplyAdd` is
-not fused (the product is rounded to double-double first).
+`Pow` is exp(y·log x), so its error grows with \|y·log x\|. `FusedMultiplyAdd` keeps the product
+unrounded on both types (accurate even for residuals like a·b − fl(a·b));
+`MultiplyAddEstimate` is the fast unfused form.
 
 `Epsilon` is the smallest positive value (2^-1074, as for `double`); `MachineEpsilon` is the
 relative precision (2^-104 for `DoubleDouble`, 2^-209 for `QuadDouble`).

@@ -146,6 +146,13 @@ public readonly partial struct DoubleDouble
     /// <summary>Hi + Lo rounded to double (that is <see cref="Hi"/>).</summary>
     public static explicit operator double(DoubleDouble value) => value._hi;
 
+    /// <summary>
+    /// Hi + Lo correctly rounded to double. Nearest-even is <see cref="Hi"/> itself; the directed
+    /// modes round the exact value.
+    /// </summary>
+    public double ToDouble(RoundingMode rounding = RoundingMode.NearestEven) =>
+        rounding == RoundingMode.NearestEven ? _hi : ToBigFloatExact().ToDouble(rounding);
+
     /// <summary>Correctly rounded to float (no double rounding through <see cref="Hi"/>).</summary>
     public static explicit operator float(DoubleDouble value)
     {

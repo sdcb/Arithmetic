@@ -137,7 +137,7 @@ public readonly partial struct QuadDouble
 
     /// <summary>
     /// The smallest positive value, 2^-1074 (same as <see cref="double.Epsilon"/>; this follows the .NET
-    /// convention, not QD's machine epsilon 2^-209).
+    /// convention, not QD's machine epsilon 2^-209). For the relative precision use <see cref="MachineEpsilon"/>.
     /// </summary>
     public static QuadDouble Epsilon => Single(double.Epsilon);
 

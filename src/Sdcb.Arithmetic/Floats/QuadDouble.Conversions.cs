@@ -172,6 +172,13 @@ public readonly partial struct QuadDouble
     /// <summary>The nearest double (ties to even).</summary>
     public static explicit operator double(QuadDouble value) => ToDoubleNearest(value);
 
+    /// <summary>
+    /// The value correctly rounded to double. Nearest-even uses the component sum directly; the
+    /// directed modes round the exact value.
+    /// </summary>
+    public double ToDouble(RoundingMode rounding = RoundingMode.NearestEven) =>
+        rounding == RoundingMode.NearestEven ? ToDoubleNearest(this) : ToBigFloatExact(this).ToDouble(rounding);
+
     /// <summary>The nearest float (ties to even; no double rounding).</summary>
     public static explicit operator float(QuadDouble value)
     {

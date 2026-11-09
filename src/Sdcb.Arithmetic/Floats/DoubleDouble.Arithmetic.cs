@@ -265,12 +265,31 @@ public readonly partial struct DoubleDouble
     }
 
     /// <summary>
-    /// left * right + addend. Not fused: the product is first rounded to double-double, so the
-    /// result carries the multiplication and the addition error bounds.
+    /// (left · right) + addend with the product kept unrounded: it is formed in quad-double
+    /// (~212 bits, so the product of two double-doubles is effectively exact), added in quad-double
+    /// and rounded once to double-double. When the sum cancels by more than 90 bits it is recomputed
+    /// exactly through <see cref="BigFloat"/>, so the result is accurate to ~2^-104 relative even for
+    /// residuals such as a·b − fl(a·b). Use <see cref="MultiplyAddEstimate"/> for the fast unfused form.
     /// </summary>
-    public static DoubleDouble FusedMultiplyAdd(DoubleDouble left, DoubleDouble right, DoubleDouble addend) => left * right + addend;
+    public static DoubleDouble FusedMultiplyAdd(DoubleDouble left, DoubleDouble right, DoubleDouble addend)
+    {
+        QuadDouble p = (QuadDouble)left * right;
+        if (!double.IsFinite(p.X0) || !double.IsFinite(addend._hi) || p.X0 == 0 || addend._hi == 0)
+        {
+            return double.IsFinite(p.X0) ? (DoubleDouble)(p + addend) : Math.FusedMultiplyAdd(left._hi, right._hi, addend._hi);
+        }
+        QuadDouble s = p + addend;
+        if (Math.Abs(s.X0) >= Math.Max(Math.Abs(p.X0), Math.Abs(addend._hi)) * 8.077935669463161E-28 /* 2^-90 */)
+        {
+            return (DoubleDouble)s;
+        }
+        return FromBigFloat(BigFloat.FusedMultiplyAdd(left.ToBigFloatExact(), right.ToBigFloatExact(), addend.ToBigFloatExact(), 320));
+    }
 
-    /// <summary>The <see cref="FusedMultiplyAdd(DoubleDouble, DoubleDouble, DoubleDouble)"/> estimate (INumberBase).</summary>
+    /// <summary>
+    /// left * right + addend, unfused: the product is first rounded to double-double, so the result
+    /// carries the multiplication and the addition error bounds (fast; INumberBase).
+    /// </summary>
     public static DoubleDouble MultiplyAddEstimate(DoubleDouble left, DoubleDouble right, DoubleDouble addend) => left * right + addend;
 
     // ---------------------------------------------------------------
