@@ -84,4 +84,27 @@ public class Float128Bench
     [Benchmark] public Float128 F128Sin() => Float128.Sin(_a);
     [Benchmark] public Real RealSin() => Real.Sin(_ra, P);
     [Benchmark] public int MpfrSin() => Mpfr.Sin(ref _mr, ref _ma, 0);
+
+    [Benchmark] public Float128 F128Cos() => Float128.Cos(_a);
+    [Benchmark] public int MpfrCos() => Mpfr.Cos(ref _mr, ref _ma, 0);
+
+    [Benchmark] public Float128 F128Log() => Float128.Log(_b);
+    [Benchmark] public int MpfrLog() => Mpfr.Log(ref _mr, ref _mb, 0);
+
+    [Benchmark] public Float128 F128Atan() => Float128.Atan(_a);
+    [Benchmark] public int MpfrAtan() => Mpfr.Atan(ref _mr, ref _ma, 0);
+
+    [Benchmark] public Float128 F128Pow() => Float128.Pow(_b, _a);
+    [Benchmark] public int MpfrPow() => Mpfr.Pow(ref _mr, ref _mb, ref _ma, 0);
+
+    [Benchmark] public Float128 F128Tan() => Float128.Tan(_a);
+    [Benchmark] public Float128 F128Exp2() => Float128.Exp2(_a);
+    [Benchmark] public Float128 F128Log2() => Float128.Log2(_b);
+    [Benchmark] public Float128 F128Log10() => Float128.Log10(_b);
+    [Benchmark] public Float128 F128Asin() => Float128.Asin(_c);
+    [Benchmark] public Float128 F128Acos() => Float128.Acos(_c);
+    [Benchmark] public Float128 F128Atan2() => Float128.Atan2(_a, _b);
+    [Benchmark] public Float128 F128Sinh() => Float128.Sinh(_a);
+    [Benchmark] public Float128 F128Cosh() => Float128.Cosh(_a);
+    [Benchmark] public Float128 F128Tanh() => Float128.Tanh(_c);
 }
