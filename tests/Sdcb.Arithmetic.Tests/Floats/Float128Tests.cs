@@ -234,6 +234,167 @@ public class Float128Tests
         }
     }
 
+    // ---------------------------------------------------------------
+    // Boundaries of the normal-operand fast paths (alignment shifts, normal/subnormal threshold,
+    // overflow threshold, exact ties)
+    // ---------------------------------------------------------------
+
+    private static UInt128 Make(bool negative, int exp, UInt128 frac) =>
+        ((UInt128)(uint)exp << 112) | frac | (negative ? Sign : UInt128.Zero);
+
+    private static void CheckArith(UInt128 a, UInt128 b, bool add, bool mul, bool div)
+    {
+        Real ra = R(F(a)), rb = R(F(b));
+        foreach (RealRounding mode in Modes)
+        {
+            if (add)
+            {
+                AssertBits(Oracle((p, m) => Real.Add(ra, rb, p, m), mode), Float128.Add(F(a), F(b), mode), $"Add({H(a)}, {H(b)}) {mode}");
+                AssertBits(Oracle((p, m) => Real.Subtract(ra, rb, p, m), mode), Float128.Subtract(F(a), F(b), mode), $"Sub({H(a)}, {H(b)}) {mode}");
+            }
+            if (mul)
+            {
+                AssertBits(Oracle((p, m) => Real.Multiply(ra, rb, p, m), mode), Float128.Multiply(F(a), F(b), mode), $"Mul({H(a)}, {H(b)}) {mode}");
+            }
+            if (div)
+            {
+                AssertBits(Oracle((p, m) => Real.Divide(ra, rb, p, m), mode), Float128.Divide(F(a), F(b), mode), $"Div({H(a)}, {H(b)}) {mode}");
+            }
+        }
+    }
+
+    [Fact]
+    public void AddAlignmentBoundaries()
+    {
+        Random rng = new(11);
+        int[] shifts = [0, 1, 2, 3, 62, 63, 64, 65, 66, 111, 112, 113, 114, 115, 116, 126, 127, 128, 129, 130, 191, 192, 193, 400];
+        foreach (int d in shifts)
+        {
+            for (int i = 0; i < 60; i++)
+            {
+                int expA = rng.Next(4) switch
+                {
+                    0 => d + 1 + rng.Next(3), // difference lands at or just above the subnormal threshold
+                    1 => 0x7FFE - rng.Next(3), // overflow threshold
+                    _ => 0x3FFF + rng.Next(-40, 40),
+                };
+                if (expA - d < 1 || expA > 0x7FFE)
+                {
+                    continue;
+                }
+                UInt128 a = Make(rng.Next(2) == 0, expA, RandomFrac(rng));
+                UInt128 b = Make(rng.Next(2) == 0, expA - d, RandomFrac(rng));
+                CheckArith(a, b, add: true, mul: false, div: false);
+                CheckArith(b, a, add: true, mul: false, div: false);
+            }
+        }
+    }
+
+    [Fact]
+    public void ProductAndQuotientRangeBoundaries()
+    {
+        Random rng = new(12);
+        // Target biased result exponents around the subnormal threshold, deep underflow and overflow.
+        int[] targets = [-116, -115, -114, -113, -112, -2, -1, 0, 1, 2, 3, 0x7FFC, 0x7FFD, 0x7FFE, 0x7FFF, 0x8000];
+        foreach (int e in targets)
+        {
+            for (int i = 0; i < 80; i++)
+            {
+                int expA = rng.Next(2) == 0 ? rng.Next(1, 0x7FFF) : (e < 0x4000 ? rng.Next(1, 200) : rng.Next(0x7F00, 0x7FFF));
+                int expMul = e - expA + 0x3FFF + rng.Next(-1, 2);
+                int expDiv = expA - e + 0x3FFF + rng.Next(-1, 2);
+                UInt128 fa = RandomFrac(rng), fb = RandomFrac(rng);
+                bool sa = rng.Next(2) == 0, sb = rng.Next(2) == 0;
+                if (expMul >= 1 && expMul <= 0x7FFE)
+                {
+                    CheckArith(Make(sa, expA, fa), Make(sb, expMul, fb), add: false, mul: true, div: false);
+                }
+                if (expDiv >= 1 && expDiv <= 0x7FFE)
+                {
+                    CheckArith(Make(sa, expA, fa), Make(sb, expDiv, fb), add: false, mul: false, div: true);
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public void ExactTiesRoundToEven()
+    {
+        Random rng = new(13);
+        UInt128 fracMask = (UInt128.One << 112) - 1;
+        for (int i = 0; i < 400; i++)
+        {
+            // sigA odd and < 2^114 / 3: sigA * 3 has 114 bits ending in 1, an exact tie at 113 bits.
+            UInt128 frac = (new UInt128((ulong)rng.NextInt64(), (ulong)rng.NextInt64()) & fracMask) >> 2 | 1;
+            int expA = rng.Next(3) switch
+            {
+                0 => rng.Next(1, 120), // the product may land in the subnormal range
+                1 => 0x7FFE - rng.Next(3),
+                _ => 0x3FFF + rng.Next(-40, 40),
+            };
+            UInt128 a = Make(rng.Next(2) == 0, expA, frac);
+            UInt128 b = Make(rng.Next(2) == 0, 0x3FFF + rng.Next(-3, 2), UInt128.One << 111); // ±1.5 * 2^k
+            CheckArith(a, b, add: false, mul: true, div: false);
+            // a + b with b just below a's last place: exact half-ulp sums and differences.
+            UInt128 c = Make(rng.Next(2) == 0, expA > 113 ? expA - 113 : 1, rng.Next(2) == 0 ? UInt128.Zero : RandomFrac(rng));
+            CheckArith(a, c, add: true, mul: false, div: false);
+        }
+    }
+
+    [Fact]
+    public void FusedMultiplyAddAlignmentBoundaries()
+    {
+        Random rng = new(14);
+        int[] offsets = [-300, -257, -256, -255, -200, -129, -128, -127, -65, -64, -63, -29, -28, -27, -26, -2, -1, 0, 1, 2, 26, 27, 28, 29, 63, 64, 65, 127, 128, 129, 200, 255, 256, 257, 300];
+        foreach (int d in offsets)
+        {
+            for (int i = 0; i < 40; i++)
+            {
+                int expA = rng.Next(3) switch
+                {
+                    0 => rng.Next(1, 200),
+                    1 => rng.Next(0x7F00, 0x7FFF),
+                    _ => 0x3FFF + rng.Next(-30, 30),
+                };
+                int expB = rng.Next(2) == 0 ? 0x3FFF + rng.Next(-30, 30) : rng.Next(1, 0x7FFF);
+                // C's alignment offset relative to the product in the fast path: expC - expA - expB + 16382.
+                int expC = d + expA + expB - 16382;
+                if (expC < 1 || expC > 0x7FFE)
+                {
+                    continue;
+                }
+                UInt128 a = Make(rng.Next(2) == 0, expA, RandomFrac(rng));
+                UInt128 b = Make(rng.Next(2) == 0, expB, RandomFrac(rng));
+                UInt128 c = Make(rng.Next(2) == 0, expC, RandomFrac(rng));
+                Real ra = R(F(a)), rb = R(F(b)), rc = R(F(c));
+                foreach (RealRounding mode in Modes)
+                {
+                    UInt128 expected = Oracle((p, m) => Real.FusedMultiplyAdd(ra, rb, rc, p, m), mode);
+                    AssertBits(expected, Float128.FusedMultiplyAdd(F(a), F(b), F(c), mode), $"Fma({H(a)}, {H(b)}, {H(c)}) {mode}");
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public void SqrtRangeBoundaries()
+    {
+        Random rng = new(15);
+        int[] exps = [1, 2, 3, 4, 0x3FFE, 0x3FFF, 0x4000, 0x7FFC, 0x7FFD, 0x7FFE];
+        foreach (int e in exps)
+        {
+            for (int i = 0; i < 60; i++)
+            {
+                UInt128 a = Make(false, e, i == 0 ? UInt128.Zero : i == 1 ? (UInt128.One << 112) - 1 : RandomFrac(rng));
+                Real ra = R(F(a));
+                foreach (RealRounding mode in Modes)
+                {
+                    AssertBits(Oracle((p, m) => Real.Sqrt(ra, p, m), mode), Float128.Sqrt(F(a), mode), $"Sqrt({H(a)}) {mode}");
+                }
+            }
+        }
+    }
+
     [Fact]
     public void SpecialOperandPairs()
     {

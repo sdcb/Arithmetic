@@ -116,7 +116,14 @@ public readonly partial struct Float128 : IEquatable<Float128>, IComparable<Floa
     // Field access
     // ---------------------------------------------------------------
 
-    private ulong Hi => (ulong)(_bits >> 64);
+    // UInt128's shift, compare and bitwise operators are not inlined by the JIT, so the hot paths
+    // work on the two 64-bit halves directly.
+    private ulong Hi { [MethodImpl(MethodImplOptions.AggressiveInlining)] get => Hi64(_bits); }
+
+    private ulong Lo { [MethodImpl(MethodImplOptions.AggressiveInlining)] get => (ulong)_bits; }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Float128 FromHiLo(ulong hi, ulong lo) => new(new UInt128(hi, lo));
 
     private bool SignBit => (long)Hi < 0;
 
@@ -124,14 +131,20 @@ public readonly partial struct Float128 : IEquatable<Float128>, IComparable<Floa
 
     private UInt128 Fraction => _bits & FracMask;
 
+    /// <summary>The upper 64 bits of x (same as <c>(ulong)(x &gt;&gt; 64)</c>, without the non-inlined shift operator).</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int ExpOf(UInt128 b) => (int)((ulong)(b >> 64) >> 48) & 0x7FFF;
+    private static ulong Hi64(UInt128 x) => BitConverter.IsLittleEndian
+        ? Unsafe.Add(ref Unsafe.As<UInt128, ulong>(ref x), 1)
+        : (ulong)(x >> 64);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static UInt128 FracOf(UInt128 b) => b & FracMask;
+    private static int ExpOf(UInt128 b) => (int)(Hi64(b) >> 48) & 0x7FFF;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool SignOf(UInt128 b) => (long)(ulong)(b >> 64) < 0;
+    private static UInt128 FracOf(UInt128 b) => new(Hi64(b) & FracMaskHi, (ulong)b);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool SignOf(UInt128 b) => (long)Hi64(b) < 0;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static UInt128 SignBits(bool negative) => negative ? SignMask : UInt128.Zero;
@@ -230,7 +243,7 @@ public readonly partial struct Float128 : IEquatable<Float128>, IComparable<Floa
         if (rounding == RealRounding.NearestEven && (uint)exp < 0x7FFD)
         {
             // Normal result, nearest-even: a carry out of bit 112 bumps the exponent field and cannot reach ∞.
-            ulong lo = (ulong)sig, hi = (ulong)(sig >> 64) + ((ulong)(uint)exp << 48);
+            ulong lo = (ulong)sig, hi = Hi64(sig) + ((ulong)(uint)exp << 48);
             if ((long)extra < 0)
             {
                 lo++;
