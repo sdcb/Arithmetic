@@ -42,7 +42,7 @@ public static class Program
             return;
         }
         BenchmarkSwitcher
-            .FromTypes([typeof(MulBench), typeof(AddBench), typeof(DivBench), typeof(ToStringBench), typeof(PowModBench), typeof(GcdBench), typeof(RealArithBench), typeof(RealTransBench)])
+            .FromTypes([typeof(MulBench), typeof(AddBench), typeof(DivBench), typeof(ToStringBench), typeof(PowModBench), typeof(GcdBench), typeof(RealArithBench), typeof(RealTransBench), typeof(DoubleDoubleBench), typeof(QuadDoubleBench), typeof(Float128Bench)])
             .Run(args, DefaultConfig.Instance.AddJob(Job.ShortRun.WithWarmupCount(2).WithIterationCount(5)));
     }
 

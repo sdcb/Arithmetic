@@ -75,6 +75,34 @@ integer kernels themselves (multiplication/division), not `Real` overhead.
 including JIT). The `r.pi` row printed by `perf` is not a like-for-like ratio: `Real.Pi` reuses its
 internal constant cache while the MPFR side frees its cache on every call.
 
+## Fixed-width floats
+
+BenchmarkDotNet ShortRun (mean, ns), same machine. `Real` and MPFR run at the type's
+precision (113 / 106 / 212 bits). `Float128`, `DoubleDouble` and `QuadDouble` allocate nothing
+(including `Float128`'s fast-path transcendentals); `Real` allocates 40–56 B per basic operation.
+
+| operation | `Float128` | `Real` 113 | MPFR 113 | `DoubleDouble` | `Real` 106 | MPFR 106 | `QuadDouble` | `Real` 212 | MPFR 212 |
+|---|---|---|---|---|---|---|---|---|---|
+| add | 4.8 | 47 | 18 | 1.8 | 45 | 13 | 17 | 47 | 17 |
+| sub (cancelling) | 5.7 | — | 13 | — | — | — | 29 | — | 19 |
+| mul | 6.2 | 39 | 21 | 1.3 | 37 | 21 | 35 | 57 | 36 |
+| div | 13 | 80 | 28 | 4.8 | 79 | 29 | 31 | 99 | 68 |
+| sqrt | 13 | 123 | 28 | 8.7 | 126 | 29 | 35 | 199 | 95 |
+| fma | 20 | 80 | — | — | — | — | — | — | — |
+| exp | 154 | 1,191 | 1,011 | 109 | 1,041 | 959 | 954 | 1,763 | 1,575 |
+| log | 174 | — | 1,931 | 155 | 2,694 | 1,909 | 1,170 | 5,175 | 4,136 |
+| sin | 198 | 1,678 | 1,176 | 115 | 1,670 | 1,157 | 1,213 | 2,443 | 1,738 |
+| atan / pow | 299 / 369 | — | 3,622 / 3,328 | | | | | | |
+| ToString / Parse | 356 / 356 | 282 / 282 | — | | | | | | |
+
+- `Float128` basic arithmetic is 2–4× faster than MPFR at 113 bits, every result correctly rounded.
+  Its transcendentals use a triple-double fast path (exp 154, log 174, sin/cos ~200, atan 299,
+  pow 369 ns) and are 6–12× faster than MPFR while still correctly rounded; hard cases
+  (≪ 0.1% of random inputs) fall back to `Real`.
+- `DoubleDouble` basic arithmetic is 3–16× faster than MPFR at 106 bits; exp/log/sin are 9–12× faster.
+- `QuadDouble` matches MPFR at 212 bits on add/mul, is 2–3× faster on div/sqrt and 1.4–3.5× faster
+  on exp/log/sin; cancelling subtraction (exact merge) is 1.5× slower.
+
 ## Running the benchmarks
 
 ```

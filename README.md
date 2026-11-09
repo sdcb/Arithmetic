@@ -14,9 +14,14 @@ uses AVX-512/AVX2/SSE/NEON where available, and falls back to portable code else
 | `BigInt` | GMP `mpz_t` | Immutable arbitrary-precision signed integer |
 | `BigRational` | GMP `mpq_t` | Immutable rational, always canonical |
 | `Real` | MPFR `mpfr_t` | Correctly-rounded binary floating point: five rounding modes, NaN/±∞/±0, 100+ functions |
+| `Float128` | IEEE 754 binary128 | Fixed 113-bit quad precision, every basic operation correctly rounded, zero allocation |
+| `DoubleDouble` | QD `dd_real` | Fast ~106-bit unevaluated sum of two doubles (not correctly rounded), zero allocation |
+| `QuadDouble` | QD `qd_real` | Fast ~212-bit unevaluated sum of four doubles (not correctly rounded), zero allocation |
 
-All three implement .NET generic math (`IBinaryInteger<T>`, `INumber<T>`,
-`IBinaryFloatingPointIeee754<T>`) and interoperate with `System.Numerics.BigInteger`.
+The first four implement .NET generic math (`IBinaryInteger<T>`, `INumber<T>`,
+`IBinaryFloatingPointIeee754<T>`); `DoubleDouble`/`QuadDouble` implement `IFloatingPoint<T>` and the
+function interfaces but not the IEEE ones. `BigInt`, `BigRational` and `Real` interoperate with
+`System.Numerics.BigInteger`; the three fixed-width types convert to and from each other, `Real`, `BigInt` and `BigRational`.
 
 ## Install
 
@@ -66,6 +71,9 @@ Full tables and methodology: [docs/performance.md](https://github.com/sdcb/Arith
 `Real` against native MPFR 4.2 (53–16384 bits, both sides correctly rounded):
 add/mul 1.3–2.5×, div/sqrt 1.3–3.3×, exp/sin/atan 0.9–1.8×, log/pow 1.6–2.7×.
 
+`Float128` (correctly rounded) against MPFR at 113 bits: add/mul/div/sqrt 2–4× faster (5–13 ns),
+exp/log/sin/atan/pow 6–12× faster (150–370 ns). `DoubleDouble`: 1.3–9 ns basic operations, ~110–155 ns exp/log/sin.
+
 Every `BigInt` operation is cross-checked against `BigInteger` and native GMP, and every
 `Real` function bit-for-bit against MPFR in all rounding modes.
 
@@ -73,6 +81,7 @@ Every `BigInt` operation is cross-checked against `BigInteger` and native GMP, a
 
 - [Examples](https://github.com/sdcb/Arithmetic/blob/main/examples/README.md): 1,000,000 digits of π, RSA, rounding modes, generic math (also shipped as LINQPad samples in the NuGet package)
 - [Real: features and functions](https://github.com/sdcb/Arithmetic/blob/main/docs/real.md)
+- [Float128, DoubleDouble, QuadDouble](https://github.com/sdcb/Arithmetic/blob/main/docs/floats.md)
 - [Generic math and conversion semantics](https://github.com/sdcb/Arithmetic/blob/main/docs/generic-math.md)
 - [GMP / MPFR → `BigInt` / `Real` API mapping](https://github.com/sdcb/Arithmetic/blob/main/docs/gmp-mapping.md)
 - [Performance](https://github.com/sdcb/Arithmetic/blob/main/docs/performance.md)
