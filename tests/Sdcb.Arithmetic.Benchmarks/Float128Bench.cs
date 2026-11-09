@@ -43,6 +43,10 @@ public class Float128Bench
     [Benchmark] public Real RealAdd() => Real.Add(_ra, _rb, P);
     [Benchmark] public int MpfrAdd() => Mpfr.Add(ref _mr, ref _ma, ref _mb, 0);
 
+    // Sub (same exponent: exercises the cancellation/renormalization path)
+    [Benchmark] public Float128 F128Sub() => _a - _b;
+    [Benchmark] public int MpfrSub() => Mpfr.Sub(ref _mr, ref _ma, ref _mb, 0);
+
     // Mul
     [Benchmark] public double DoubleMul() => _da * _db;
     [Benchmark] public Float128 F128Mul() => _a * _b;
