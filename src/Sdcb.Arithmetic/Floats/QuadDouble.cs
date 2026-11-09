@@ -139,6 +139,9 @@ public readonly partial struct QuadDouble
     /// </summary>
     public static QuadDouble Epsilon => Single(double.Epsilon);
 
+    /// <summary>The relative precision 2^-209, the same convention as the QD library's qd_real::_eps.</summary>
+    public static QuadDouble MachineEpsilon => Single(Math.ScaleB(1.0, -209));
+
     /// <summary>
     /// The largest finite value (QD's <c>_max</c>): <see cref="double.MaxValue"/> followed by the largest
     /// non-overlapping tails, (2^53 - 1)·(2^971 + 2^917 + 2^863 + 2^809).

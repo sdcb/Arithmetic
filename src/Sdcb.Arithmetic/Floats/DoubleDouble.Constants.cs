@@ -96,11 +96,17 @@ public readonly partial struct DoubleDouble
     public static DoubleDouble Ln10 => new(Ln10_0, Ln10_1, normalized: true);
 
     /// <summary>
-    /// The relative precision 2^-104, the same convention as the QD library's dd_real::_eps
-    /// (twice the 2^-105 spacing of 106-bit values just above 1). Unlike <see cref="double.Epsilon"/>
-    /// this is not the smallest positive value: that is <see cref="double.Epsilon"/> itself.
+    /// The smallest positive value, 2^-1074 (same as <see cref="double.Epsilon"/>; .NET convention,
+    /// shared by <see cref="QuadDouble.Epsilon"/> and <see cref="Float128.Epsilon"/>).
+    /// For the relative precision use <see cref="MachineEpsilon"/>.
     /// </summary>
-    public static DoubleDouble Epsilon => new(4.930380657631324E-32, 0.0, normalized: true);
+    public static DoubleDouble Epsilon => new(double.Epsilon, 0.0, normalized: true);
+
+    /// <summary>
+    /// The relative precision 2^-104, the same convention as the QD library's dd_real::_eps
+    /// (twice the 2^-105 spacing of 106-bit values just above 1).
+    /// </summary>
+    public static DoubleDouble MachineEpsilon => new(4.930380657631324E-32, 0.0, normalized: true);
 
     /// <summary>
     /// The largest finite value: (<see cref="double.MaxValue"/>, 2^970·(1 - 2^-53)), the largest

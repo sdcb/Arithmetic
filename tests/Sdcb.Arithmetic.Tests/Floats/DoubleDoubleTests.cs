@@ -114,8 +114,10 @@ public class DoubleDoubleTests(ITestOutputHelper output)
         Assert.Equal(double.MaxValue, max.Hi + max.Lo); // normalized
         Assert.True(double.IsInfinity(max.Hi + Math.BitIncrement(max.Lo))); // and the largest such low word
         Assert.Equal(-max, DoubleDouble.MinValue);
-        Assert.Equal(Math.ScaleB(1.0, -104), DoubleDouble.Epsilon.Hi);
-        Assert.True(DoubleDouble.One + DoubleDouble.Epsilon > DoubleDouble.One);
+        Assert.Equal(Math.ScaleB(1.0, -104), DoubleDouble.MachineEpsilon.Hi);
+        Assert.True(DoubleDouble.One + DoubleDouble.MachineEpsilon > DoubleDouble.One);
+        Assert.Equal(double.Epsilon, DoubleDouble.Epsilon.Hi);
+        Assert.Equal(Math.ScaleB(1.0, -209), QuadDouble.MachineEpsilon.X0);
         Assert.Equal(1.0, (double)DoubleDouble.One);
         Assert.Equal(-1.0, (double)DoubleDouble.NegativeOne);
         Assert.True(DoubleDouble.IsZero(DoubleDouble.Zero));

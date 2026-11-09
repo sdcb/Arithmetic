@@ -13,9 +13,12 @@
 | `BigInt` | GMP `mpz_t` | 不可变的任意精度有符号整数 |
 | `BigRational` | GMP `mpq_t` | 不可变有理数，始终保持最简形式 |
 | `Real` | MPFR `mpfr_t` | 正确舍入的二进制浮点数：五种舍入模式、NaN/±∞/±0、100 多个函数 |
+| `Float128` | IEEE 754 binary128 | 定长 113 位四倍精度，每个基本运算都正确舍入，零分配 |
+| `DoubleDouble` | QD `dd_real` | 两个 double 之和，约 106 位，速度快但不保证正确舍入，零分配 |
+| `QuadDouble` | QD `qd_real` | 四个 double 之和，约 212 位，速度快但不保证正确舍入，零分配 |
 
-三种类型都实现了 .NET 泛型数学接口（`IBinaryInteger<T>`、`INumber<T>`、
-`IBinaryFloatingPointIeee754<T>`），并可与 `System.Numerics.BigInteger` 互转。
+前四种类型实现了 .NET 泛型数学接口（`IBinaryInteger<T>`、`INumber<T>`、
+`IBinaryFloatingPointIeee754<T>`）；`DoubleDouble`/`QuadDouble` 实现了 `IFloatingPoint<T>` 和各函数接口，但不实现 IEEE 接口。`BigInt`、`BigRational`、`Real` 可与 `System.Numerics.BigInteger` 互转；三种定长类型之间，以及它们与 `Real`、`BigInt`、`BigRational` 之间都可以互转。
 
 ## 安装
 
@@ -72,6 +75,7 @@ MPFR 逐位比对。
 
 - [示例](examples/README.md)：计算 100 万位 π、RSA、舍入模式、泛型数学（NuGet 包内也附带同样的 LINQPad 示例）
 - [Real：特性与函数](docs/real.md)
+- [Float128、DoubleDouble、QuadDouble](docs/floats.md)
 - [泛型数学与转换语义](docs/generic-math.md)
 - [GMP / MPFR → `BigInt` / `Real` API 对照](docs/gmp-mapping.md)
 - [性能](docs/performance.md)

@@ -75,6 +75,30 @@ integer kernels themselves (multiplication/division), not `Real` overhead.
 including JIT). The `r.pi` row printed by `perf` is not a like-for-like ratio: `Real.Pi` reuses its
 internal constant cache while the MPFR side frees its cache on every call.
 
+## Fixed-width floats
+
+BenchmarkDotNet ShortRun (mean, ns), same machine. `Real` and MPFR run at the type's
+precision (113 / 106 / 212 bits). Every `Float128`, `DoubleDouble` and `QuadDouble`
+arithmetic operation allocates nothing; `Real` allocates 40–56 B per basic operation.
+
+| operation | `Float128` | `Real` 113 | MPFR 113 | `DoubleDouble` | `Real` 106 | MPFR 106 | `QuadDouble` | `Real` 212 | MPFR 212 |
+|---|---|---|---|---|---|---|---|---|---|
+| add | 17 | 49 | 18 | 1.7 | 47 | 13 | 41 | 68 | 24 |
+| mul | 31 | 50 | 36 | 1.7 | 51 | 37 | 44 | 72 | 62 |
+| div | 60 | 78 | 29 | 4.9 | 81 | 30 | 193 | 120 | 78 |
+| sqrt | 23 | 127 | 26 | 8.9 | 173 | 43 | 191 | 215 | 98 |
+| fma | 53 | 87 | — | — | — | — | — | — | — |
+| exp | 1,690 | 1,301 | 1,037 | 110 | 1,058 | 1,001 | 1,022 | 1,964 | 1,543 |
+| log | — | — | — | 157 | 3,507 | 2,019 | 1,217 | 5,005 | 2,974 |
+| sin | 1,876 | 2,064 | 1,251 | 138 | 2,777 | 2,090 | 1,252 | 2,510 | 1,838 |
+| ToString / Parse | 353 / 372 | 312 / 317 | — | | | | | | |
+
+- `Float128` basic arithmetic is at MPFR's level except division (2×); its transcendental
+  functions go through `Real` to stay correctly rounded, so they cost the same as `Real`.
+- `DoubleDouble` basic arithmetic is 5–22× faster than MPFR at 106 bits; exp/log/sin are 9–15× faster.
+- `QuadDouble` mul/exp/log/sin beat MPFR at 212 bits by 1.4–2.4×; add is 1.7× slower (accurate
+  QD addition with renormalization), and div/sqrt (QD-library long division, Newton iteration) ~2× slower.
+
 ## Running the benchmarks
 
 ```
